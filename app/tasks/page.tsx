@@ -4,6 +4,7 @@ import type React from "react"
 import { X, Plus, Trash2, Circle, CheckCircle } from "lucide-react"
 import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
+import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Link from "next/link"
 import { useState } from "react"
 import type { Task } from "@/contexts/PomodoroContext"
@@ -13,7 +14,7 @@ import type { Task } from "@/contexts/PomodoroContext"
  * Allows users to add, complete, delete, and reorder tasks
  */
 function TasksPageContent() {
-  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, setTasks } = usePomodoro()
+  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, setTasks, dataLoading } = usePomodoro()
 
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -73,6 +74,14 @@ function TasksPageContent() {
   const handleDragEnd = () => {
     setDraggedTask(null)
     setDragOverIndex(null)
+  }
+
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-xl">Loading tasks...</div>
+      </div>
+    )
   }
 
   return (
@@ -179,8 +188,10 @@ function TasksPageContent() {
  */
 export default function TasksPage() {
   return (
-    <PomodoroProvider>
-      <TasksPageContent />
-    </PomodoroProvider>
+    <ProtectedRoute>
+      <PomodoroProvider>
+        <TasksPageContent />
+      </PomodoroProvider>
+    </ProtectedRoute>
   )
 }

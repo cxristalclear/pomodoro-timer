@@ -3,12 +3,17 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import type { Task, Session, Settings } from "@/contexts/PomodoroContext"
 import { useRouter } from "next/navigation"
+import { getSupabaseClient } from "@/lib/supabase/client"
+import { useAuth } from "@/contexts/AuthContext"
 
 /**
  * Custom hook that encapsulates all Pomodoro timer logic and state management
- * Handles timer functionality, task management, session tracking, and settings
+ * Now with Supabase integration for data persistence and sync
  */
 export const usePomodoroLogic = () => {
+  const { user } = useAuth()
+  const supabase = getSupabaseClient()
+
   // Core timer state
   const [time, setTime] = useState(25 * 60)
   const [isRunning, setIsRunning] = useState(false)
@@ -37,6 +42,9 @@ export const usePomodoroLogic = () => {
     autoStartWork: false,
   })
 
+  // Loading state for data sync
+  const [dataLoading, setDataLoading] = useState(false)
+
   // Refs for audio and notifications
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const notificationPermissionRef = useRef(false)
@@ -44,6 +52,103 @@ export const usePomodoroLogic = () => {
 
   // Router for navigation
   const router = useRouter()
+
+  /**
+   * Load user data from Supabase when user logs in
+   */
+  const loadUserData = useCallback(async () => {
+    if (!user) return
+
+    setDataLoading(true)
+
+    try {
+      // Load settings
+      const { data: settingsData } = await supabase.from("settings").select("*").eq("user_id", user.id).single()
+
+      if (settingsData) {
+        setSettings({
+          workDuration: settingsData.work_duration,
+          breakDuration: settingsData.break_duration,
+          longBreakDuration: settingsData.long_break_duration,
+          sessionsUntilLongBreak: settingsData.sessions_until_long_break,
+          soundEnabled: settingsData.sound_enabled,
+          soundVolume: settingsData.sound_volume,
+          autoStartBreaks: settingsData.auto_start_breaks,
+          autoStartWork: settingsData.auto_start_work,
+        })
+      }
+
+      // Load tasks
+      const { data: tasksData } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true })
+
+      if (tasksData) {
+        setTasks(
+          tasksData.map((t) => ({
+            id: t.id,
+            name: t.name,
+            completed: t.completed,
+            createdAt: t.created_at,
+            completedAt: t.completed_at,
+          })),
+        )
+      }
+
+      // Load recent sessions
+      const { data: sessionsData } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("completed_at", { ascending: false })
+        .limit(100)
+
+      if (sessionsData) {
+        setSessions(
+          sessionsData.map((s) => ({
+            task: s.task,
+            duration: s.duration,
+            completedAt: s.completed_at,
+            date: s.date,
+          })),
+        )
+
+        // Calculate completed tasks count
+        const completedCount = sessionsData.length
+        setCompletedTasks(completedCount)
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error)
+    } finally {
+      setDataLoading(false)
+    }
+  }, [user, supabase])
+
+  /**
+   * Load user data when user changes
+   */
+  useEffect(() => {
+    if (user) {
+      loadUserData()
+    } else {
+      // Reset state when user logs out
+      setTasks([])
+      setSessions([])
+      setCompletedTasks(0)
+      setSettings({
+        workDuration: 25,
+        breakDuration: 5,
+        longBreakDuration: 15,
+        sessionsUntilLongBreak: 4,
+        soundEnabled: true,
+        soundVolume: 0.5,
+        autoStartBreaks: true,
+        autoStartWork: false,
+      })
+    }
+  }, [user, loadUserData])
 
   /**
    * Reset timer to current session duration when session type or settings change
@@ -127,7 +232,7 @@ export const usePomodoroLogic = () => {
   /**
    * Handle timer completion - play sound, send notification, log session, switch session type
    */
-  const handleTimerComplete = useCallback(() => {
+  const handleTimerComplete = useCallback(async () => {
     const taskName =
       sessionType === "work"
         ? currentTask || "Work Session"
@@ -157,15 +262,42 @@ export const usePomodoroLogic = () => {
       setSessions((prev) => [...prev, session])
       setCompletedTasks((prev) => prev + 1)
 
+      // Save session to Supabase
+      if (user) {
+        try {
+          await supabase.from("sessions").insert({
+            user_id: user.id,
+            task: session.task,
+            duration: session.duration,
+            date: new Date().toISOString().split("T")[0], // YYYY-MM-DD format
+          })
+        } catch (error) {
+          console.error("Error saving session:", error)
+        }
+      }
+
       // Mark selected task as completed
-      if (selectedTaskId) {
-        setTasks((prev) =>
-          prev.map((task) =>
-            task.id === selectedTaskId ? { ...task, completed: true, completedAt: new Date().toISOString() } : task,
-          ),
-        )
-        setSelectedTaskId(null)
-        setCurrentTask("")
+      if (selectedTaskId && user) {
+        try {
+          await supabase
+            .from("tasks")
+            .update({
+              completed: true,
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", selectedTaskId)
+            .eq("user_id", user.id)
+
+          setTasks((prev) =>
+            prev.map((task) =>
+              task.id === selectedTaskId ? { ...task, completed: true, completedAt: new Date().toISOString() } : task,
+            ),
+          )
+          setSelectedTaskId(null)
+          setCurrentTask("")
+        } catch (error) {
+          console.error("Error updating task:", error)
+        }
       }
     }
 
@@ -185,7 +317,7 @@ export const usePomodoroLogic = () => {
         setTimeout(() => setIsRunning(true), 1000)
       }
     }
-  }, [sessionType, currentTask, settings, sessionCount, selectedTaskId, playSound])
+  }, [sessionType, currentTask, settings, sessionCount, selectedTaskId, playSound, user, supabase])
 
   /**
    * Main timer countdown effect
@@ -258,30 +390,55 @@ export const usePomodoroLogic = () => {
     return () => window.removeEventListener("keydown", handleKeyPress)
   }, [toggleTimer, resetTimerToCurrentSession, router])
 
-  // Task management actions
-  const addTask = useCallback(() => {
-    if (newTaskInput.trim()) {
-      const newTask: Task = {
-        id: Date.now(),
-        name: newTaskInput.trim(),
-        completed: false,
-        createdAt: new Date().toISOString(),
+  // Task management actions with Supabase sync
+  const addTask = useCallback(async () => {
+    if (newTaskInput.trim() && user) {
+      try {
+        const { data, error } = await supabase
+          .from("tasks")
+          .insert({
+            user_id: user.id,
+            name: newTaskInput.trim(),
+            position: tasks.length,
+          })
+          .select()
+          .single()
+
+        if (data && !error) {
+          const newTask: Task = {
+            id: data.id,
+            name: data.name,
+            completed: false,
+            createdAt: data.created_at,
+          }
+          setTasks((prev) => [...prev, newTask])
+          setNewTaskInput("")
+        }
+      } catch (error) {
+        console.error("Error adding task:", error)
       }
-      setTasks((prev) => [...prev, newTask])
-      setNewTaskInput("")
     }
-  }, [newTaskInput])
+  }, [newTaskInput, user, tasks.length, supabase])
 
   const deleteTask = useCallback(
-    (taskId: number) => {
-      setTasks((prev) => prev.filter((task) => task.id !== taskId))
-      // Clear current task if it's being deleted
-      if (selectedTaskId === taskId) {
-        setCurrentTask("")
-        setSelectedTaskId(null)
+    async (taskId: number) => {
+      if (user) {
+        try {
+          await supabase.from("tasks").delete().eq("id", taskId).eq("user_id", user.id)
+
+          setTasks((prev) => prev.filter((task) => task.id !== taskId))
+
+          // Clear current task if it's being deleted
+          if (selectedTaskId === taskId) {
+            setCurrentTask("")
+            setSelectedTaskId(null)
+          }
+        } catch (error) {
+          console.error("Error deleting task:", error)
+        }
       }
     },
-    [selectedTaskId],
+    [selectedTaskId, user, supabase],
   )
 
   const selectTask = useCallback(
@@ -292,6 +449,59 @@ export const usePomodoroLogic = () => {
       router.push("/")
     },
     [router],
+  )
+
+  const updateTaskOrder = useCallback(
+    async (newTasks: Task[]) => {
+      setTasks(newTasks)
+
+      if (user) {
+        try {
+          // Update positions in database
+          const updates = newTasks.map((task, index) => ({
+            id: task.id,
+            position: index,
+          }))
+
+          for (const update of updates) {
+            await supabase
+              .from("tasks")
+              .update({ position: update.position })
+              .eq("id", update.id)
+              .eq("user_id", user.id)
+          }
+        } catch (error) {
+          console.error("Error updating task order:", error)
+        }
+      }
+    },
+    [user, supabase],
+  )
+
+  const updateSettings = useCallback(
+    async (newSettings: Settings | ((prev: Settings) => Settings)) => {
+      const settingsToUpdate = typeof newSettings === "function" ? newSettings(settings) : newSettings
+      setSettings(settingsToUpdate)
+
+      if (user) {
+        try {
+          await supabase.from("settings").upsert({
+            user_id: user.id,
+            work_duration: settingsToUpdate.workDuration,
+            break_duration: settingsToUpdate.breakDuration,
+            long_break_duration: settingsToUpdate.longBreakDuration,
+            sessions_until_long_break: settingsToUpdate.sessionsUntilLongBreak,
+            sound_enabled: settingsToUpdate.soundEnabled,
+            sound_volume: settingsToUpdate.soundVolume,
+            auto_start_breaks: settingsToUpdate.autoStartBreaks,
+            auto_start_work: settingsToUpdate.autoStartWork,
+          })
+        } catch (error) {
+          console.error("Error updating settings:", error)
+        }
+      }
+    },
+    [user, supabase, settings],
   )
 
   return {
@@ -307,6 +517,7 @@ export const usePomodoroLogic = () => {
     newTaskInput,
     sessions,
     settings,
+    dataLoading,
 
     // Actions
     toggleTimer,
@@ -315,7 +526,7 @@ export const usePomodoroLogic = () => {
     addTask,
     deleteTask,
     selectTask,
-    setSettings,
-    setTasks,
+    setSettings: updateSettings,
+    setTasks: updateTaskOrder,
   }
 }

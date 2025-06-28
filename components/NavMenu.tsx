@@ -1,28 +1,32 @@
 "use client"
 
 import type React from "react"
-import { X } from "lucide-react"
-import { usePomodoro } from "@/contexts/PomodoroContext"
+import { X, LogOut } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 import Link from "next/link"
 
 /**
  * Navigation menu component with links to all app sections
  */
 export const NavMenu: React.FC = () => {
-  const { setCurrentView } = usePomodoro()
+  const { signOut, user } = useAuth()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       {/* Menu header */}
       <header className="flex justify-between items-center p-6 border-b border-gray-900">
         <h1 className="text-xl font-light">Menu</h1>
-        <button
-          onClick={() => setCurrentView("timer")}
-          className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
-          aria-label="Close menu"
-        >
+        <Link href="/" className="text-white p-2 hover:bg-gray-900 rounded transition-colors" aria-label="Close menu">
           <X size={24} />
-        </button>
+        </Link>
       </header>
 
       {/* Navigation links */}
@@ -52,10 +56,20 @@ export const NavMenu: React.FC = () => {
           >
             Settings
           </Link>
+
+          {/* Sign out button */}
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-3 w-full text-left p-4 hover:bg-gray-900 rounded transition-colors text-gray-300 mt-8 border-t border-gray-800 pt-6"
+          >
+            <LogOut size={20} />
+            Sign Out
+          </button>
         </div>
 
-        {/* Keyboard shortcuts help */}
+        {/* User info and keyboard shortcuts */}
         <div className="mt-8 text-center text-gray-600 text-xs">
+          {user?.email && <p className="mb-4 text-gray-500">Signed in as {user.email}</p>}
           <p>Space: play/pause</p>
           <p>Ctrl+R: reset</p>
           <p>Use navigation links to switch between pages</p>

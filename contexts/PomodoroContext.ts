@@ -48,6 +48,9 @@ export interface PomodoroContextType {
   // Settings
   settings: Settings
 
+  // Loading state
+  dataLoading: boolean
+
   // Timer actions
   toggleTimer: () => void
   resetTimer: () => void

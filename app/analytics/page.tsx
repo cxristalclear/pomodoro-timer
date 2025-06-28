@@ -2,6 +2,7 @@
 import { X } from "lucide-react"
 import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
+import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { generateCalendarGrid, getIntensityColor, calculateAnalytics } from "@/lib/utils"
 import Link from "next/link"
 
@@ -10,11 +11,19 @@ import Link from "next/link"
  * Displays session statistics, activity calendar, and task breakdown
  */
 function AnalyticsPageContent() {
-  const { sessions, setCurrentView } = usePomodoro()
+  const { sessions, dataLoading } = usePomodoro()
 
   // Calculate analytics data
   const analytics = calculateAnalytics(sessions)
   const calendarGrid = generateCalendarGrid(sessions)
+
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-xl">Loading analytics...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -103,8 +112,10 @@ function AnalyticsPageContent() {
  */
 export default function AnalyticsPage() {
   return (
-    <PomodoroProvider>
-      <AnalyticsPageContent />
-    </PomodoroProvider>
+    <ProtectedRoute>
+      <PomodoroProvider>
+        <AnalyticsPageContent />
+      </PomodoroProvider>
+    </ProtectedRoute>
   )
 }

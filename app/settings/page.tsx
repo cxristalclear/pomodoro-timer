@@ -4,6 +4,7 @@ import type React from "react"
 import { X } from "lucide-react"
 import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
+import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Link from "next/link"
 
 /**
@@ -11,7 +12,7 @@ import Link from "next/link"
  * Allows users to configure timer durations, sound settings, and auto-start options
  */
 function SettingsPageContent() {
-  const { settings, setSettings, setCurrentView } = usePomodoro()
+  const { settings, setSettings, dataLoading } = usePomodoro()
 
   /**
    * Create a toggle button component for boolean settings
@@ -63,6 +64,14 @@ function SettingsPageContent() {
       </div>
     </div>
   )
+
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-xl">Loading settings...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -178,8 +187,10 @@ function SettingsPageContent() {
  */
 export default function SettingsPage() {
   return (
-    <PomodoroProvider>
-      <SettingsPageContent />
-    </PomodoroProvider>
+    <ProtectedRoute>
+      <PomodoroProvider>
+        <SettingsPageContent />
+      </PomodoroProvider>
+    </ProtectedRoute>
   )
 }
