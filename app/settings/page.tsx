@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
-import { X } from "lucide-react"
+import { X, Save, Check } from "lucide-react"
 import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Link from "next/link"
+import { useState, useEffect } from "react"
 
 /**
  * Settings page component
@@ -13,6 +14,67 @@ import Link from "next/link"
  */
 function SettingsPageContent() {
   const { settings, setSettings, dataLoading } = usePomodoro()
+  const [localSettings, setLocalSettings] = useState(settings)
+  const [hasChanges, setHasChanges] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Update local settings when global settings change
+  useEffect(() => {
+    setLocalSettings(settings)
+    setHasChanges(false)
+  }, [settings])
+
+  // Check for changes
+  useEffect(() => {
+    const changed = JSON.stringify(localSettings) !== JSON.stringify(settings)
+    setHasChanges(changed)
+  }, [localSettings, settings])
+
+  /**
+   * Save settings to database
+   */
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      await setSettings(localSettings)
+      setSaved(true)
+      setHasChanges(false)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (error) {
+      console.error("Error saving settings:", error)
+      setError("Failed to save settings. Please try again.")
+      setTimeout(() => setError(null), 5000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /**
+   * Reset to last saved settings
+   */
+  const handleReset = () => {
+    setLocalSettings(settings)
+    setHasChanges(false)
+    setError(null)
+  }
+
+  /**
+   * Handle keyboard shortcuts
+   */
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && hasChanges) {
+        e.preventDefault()
+        handleSave()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyPress)
+    return () => window.removeEventListener("keydown", handleKeyPress)
+  }, [hasChanges])
 
   /**
    * Create a toggle button component for boolean settings
@@ -26,7 +88,7 @@ function SettingsPageContent() {
       <span className="text-gray-300">{label}</span>
       <button
         onClick={onChange}
-        className={`w-12 h-6 rounded-full transition-colors ${enabled ? "bg-gray-600" : "bg-gray-800"}`}
+        className={`w-12 h-6 rounded-full transition-colors ${enabled ? "bg-blue-600" : "bg-gray-800"}`}
         aria-label={`Toggle ${label}`}
         role="switch"
         aria-checked={enabled}
@@ -57,7 +119,7 @@ function SettingsPageContent() {
           min={min}
           max={max}
           onChange={(e) => onChange(Number.parseInt(e.target.value) || min)}
-          className="w-20 bg-gray-900 px-3 py-2 rounded outline-none focus:bg-gray-800 text-center transition-colors"
+          className="w-20 bg-gray-900 px-3 py-2 rounded outline-none focus:bg-gray-800 text-center transition-colors border border-gray-700 focus:border-blue-500"
           aria-label={label}
         />
         <span className="text-gray-500">minutes</span>
@@ -90,26 +152,31 @@ function SettingsPageContent() {
       {/* Settings content */}
       <div className="flex-1 p-6 max-w-md mx-auto w-full">
         <div className="space-y-6">
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg">{error}</div>
+          )}
+
           {/* Timer duration settings */}
           <div className="space-y-4">
             <h3 className="text-gray-500 text-sm">Timer Settings</h3>
 
             <DurationInput
               label="Work Duration"
-              value={settings.workDuration}
-              onChange={(value) => setSettings((prev) => ({ ...prev, workDuration: value }))}
+              value={localSettings.workDuration}
+              onChange={(value) => setLocalSettings((prev) => ({ ...prev, workDuration: value }))}
             />
 
             <DurationInput
               label="Break Duration"
-              value={settings.breakDuration}
-              onChange={(value) => setSettings((prev) => ({ ...prev, breakDuration: value }))}
+              value={localSettings.breakDuration}
+              onChange={(value) => setLocalSettings((prev) => ({ ...prev, breakDuration: value }))}
             />
 
             <DurationInput
               label="Long Break Duration"
-              value={settings.longBreakDuration}
-              onChange={(value) => setSettings((prev) => ({ ...prev, longBreakDuration: value }))}
+              value={localSettings.longBreakDuration}
+              onChange={(value) => setLocalSettings((prev) => ({ ...prev, longBreakDuration: value }))}
             />
 
             <div>
@@ -117,16 +184,16 @@ function SettingsPageContent() {
               <div className="flex items-center gap-4">
                 <input
                   type="number"
-                  value={settings.sessionsUntilLongBreak}
+                  value={localSettings.sessionsUntilLongBreak}
                   min={2}
                   max={10}
                   onChange={(e) =>
-                    setSettings((prev) => ({
+                    setLocalSettings((prev) => ({
                       ...prev,
                       sessionsUntilLongBreak: Number.parseInt(e.target.value) || 4,
                     }))
                   }
-                  className="w-20 bg-gray-900 px-3 py-2 rounded outline-none focus:bg-gray-800 text-center transition-colors"
+                  className="w-20 bg-gray-900 px-3 py-2 rounded outline-none focus:bg-gray-800 text-center transition-colors border border-gray-700 focus:border-blue-500"
                   aria-label="Sessions until long break"
                 />
                 <span className="text-gray-500">sessions</span>
@@ -139,8 +206,8 @@ function SettingsPageContent() {
             <h3 className="text-gray-500 text-sm">Sound & Notifications</h3>
 
             <ToggleButton
-              enabled={settings.soundEnabled}
-              onChange={() => setSettings((prev) => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+              enabled={localSettings.soundEnabled}
+              onChange={() => setLocalSettings((prev) => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
               label="Sound Alerts"
             />
 
@@ -151,12 +218,15 @@ function SettingsPageContent() {
                 min="0"
                 max="1"
                 step="0.1"
-                value={settings.soundVolume}
-                onChange={(e) => setSettings((prev) => ({ ...prev, soundVolume: Number.parseFloat(e.target.value) }))}
-                className="w-full"
-                disabled={!settings.soundEnabled}
+                value={localSettings.soundVolume}
+                onChange={(e) =>
+                  setLocalSettings((prev) => ({ ...prev, soundVolume: Number.parseFloat(e.target.value) }))
+                }
+                className="w-full accent-blue-600"
+                disabled={!localSettings.soundEnabled}
                 aria-label="Sound volume"
               />
+              <div className="text-xs text-gray-500 mt-1">{Math.round(localSettings.soundVolume * 100)}%</div>
             </div>
           </div>
 
@@ -165,16 +235,64 @@ function SettingsPageContent() {
             <h3 className="text-gray-500 text-sm">Auto-start</h3>
 
             <ToggleButton
-              enabled={settings.autoStartBreaks}
-              onChange={() => setSettings((prev) => ({ ...prev, autoStartBreaks: !prev.autoStartBreaks }))}
+              enabled={localSettings.autoStartBreaks}
+              onChange={() => setLocalSettings((prev) => ({ ...prev, autoStartBreaks: !prev.autoStartBreaks }))}
               label="Auto-start Breaks"
             />
 
             <ToggleButton
-              enabled={settings.autoStartWork}
-              onChange={() => setSettings((prev) => ({ ...prev, autoStartWork: !prev.autoStartWork }))}
+              enabled={localSettings.autoStartWork}
+              onChange={() => setLocalSettings((prev) => ({ ...prev, autoStartWork: !prev.autoStartWork }))}
               label="Auto-start Work Sessions"
             />
+          </div>
+
+          {/* Save/Reset buttons */}
+          {hasChanges && (
+            <div className="flex gap-3 pt-4 border-t border-gray-800">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-3 rounded-lg transition-colors font-medium"
+              >
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : saved ? (
+                  <>
+                    <Check size={16} />
+                    Saved!
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    Save Changes
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={saving}
+                className="px-4 py-3 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white rounded-lg transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          )}
+
+          {/* Keyboard shortcuts info */}
+          <div className="text-xs text-gray-600 pt-4 border-t border-gray-900">
+            <p className="mb-2">Keyboard shortcuts:</p>
+            <div className="space-y-1">
+              <p>
+                <kbd className="bg-gray-800 px-1 rounded">Ctrl/Cmd + S</kbd> Save settings
+              </p>
+              <p>
+                <kbd className="bg-gray-800 px-1 rounded">Ctrl/Cmd + R</kbd> Reset timer
+              </p>
+            </div>
           </div>
         </div>
       </div>

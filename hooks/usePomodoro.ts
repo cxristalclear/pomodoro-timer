@@ -63,9 +63,13 @@ export const usePomodoroLogic = () => {
 
     try {
       // Load settings
-      const { data: settingsData } = await supabase.from("settings").select("*").eq("user_id", user.id).single()
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("user_id", user.id)
+        .single()
 
-      if (settingsData) {
+      if (settingsData && !settingsError) {
         setSettings({
           workDuration: settingsData.work_duration,
           breakDuration: settingsData.break_duration,
@@ -79,13 +83,13 @@ export const usePomodoroLogic = () => {
       }
 
       // Load tasks
-      const { data: tasksData } = await supabase
+      const { data: tasksData, error: tasksError } = await supabase
         .from("tasks")
         .select("*")
         .eq("user_id", user.id)
         .order("position", { ascending: true })
 
-      if (tasksData) {
+      if (tasksData && !tasksError) {
         setTasks(
           tasksData.map((t) => ({
             id: t.id,
@@ -98,14 +102,14 @@ export const usePomodoroLogic = () => {
       }
 
       // Load recent sessions
-      const { data: sessionsData } = await supabase
+      const { data: sessionsData, error: sessionsError } = await supabase
         .from("sessions")
         .select("*")
         .eq("user_id", user.id)
         .order("completed_at", { ascending: false })
         .limit(100)
 
-      if (sessionsData) {
+      if (sessionsData && !sessionsError) {
         setSessions(
           sessionsData.map((s) => ({
             task: s.task,
@@ -178,7 +182,11 @@ export const usePomodoroLogic = () => {
    */
   useEffect(() => {
     if (typeof window !== "undefined") {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      try {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      } catch (error) {
+        console.log("Audio context not available:", error)
+      }
 
       // Request notification permission
       if ("Notification" in window && Notification.permission === "default") {
@@ -481,11 +489,21 @@ export const usePomodoroLogic = () => {
   const updateSettings = useCallback(
     async (newSettings: Settings | ((prev: Settings) => Settings)) => {
       const settingsToUpdate = typeof newSettings === "function" ? newSettings(settings) : newSettings
+
+      // Update local state immediately
       setSettings(settingsToUpdate)
 
+      // Save to Supabase
       if (user) {
         try {
-          await supabase.from("settings").upsert({
+          // First, try to check if settings exist
+          const { data: existingSettings } = await supabase
+            .from("settings")
+            .select("user_id")
+            .eq("user_id", user.id)
+            .single()
+
+          const settingsData = {
             user_id: user.id,
             work_duration: settingsToUpdate.workDuration,
             break_duration: settingsToUpdate.breakDuration,
@@ -495,11 +513,33 @@ export const usePomodoroLogic = () => {
             sound_volume: settingsToUpdate.soundVolume,
             auto_start_breaks: settingsToUpdate.autoStartBreaks,
             auto_start_work: settingsToUpdate.autoStartWork,
-          })
+          }
+
+          let error
+
+          if (existingSettings) {
+            // Update existing settings
+            const result = await supabase.from("settings").update(settingsData).eq("user_id", user.id)
+            error = result.error
+          } else {
+            // Insert new settings
+            const result = await supabase.from("settings").insert(settingsData)
+            error = result.error
+          }
+
+          if (error) {
+            console.error("Error updating settings:", error)
+            throw error
+          }
         } catch (error) {
           console.error("Error updating settings:", error)
+          // Revert local state on error
+          setSettings(settings)
+          throw error
         }
       }
+
+      return settingsToUpdate
     },
     [user, supabase, settings],
   )
