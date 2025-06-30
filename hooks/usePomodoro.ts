@@ -69,7 +69,7 @@ export function usePomodoroLogic() {
 
   // Tasks
   const tasksHook = useTasks(userId);
-  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, currentTask, selectedTaskId, loadTasks, toggleTaskCompletion, updateTask } = tasksHook;
+  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, selectTaskByIdNoReorder, currentTask, selectedTaskId, loadTasks, toggleTaskCompletion, updateTask, updateTaskOrder } = tasksHook;
 
   // Sessions
   const sessionsHook = useSessions(userId);
@@ -91,8 +91,32 @@ export function usePomodoroLogic() {
     const currentTask = tasks.find(task => task.id === selectedTaskId);
     if (!currentTask || currentTask.completed) return;
 
-    // Complete the current task
-    await toggleTaskCompletion(selectedTaskId);
+    // Only complete the current task if the timer is running
+    if (isRunning) {
+      await toggleTaskCompletion(selectedTaskId);
+    } else {
+      // If skipping (not completing), move the current task to the bottom of the active list
+      const activeTasks = tasks.filter(t => !t.completed);
+      const completedTasks = tasks.filter(t => t.completed);
+      const currentTaskIndex = activeTasks.findIndex(t => t.id === selectedTaskId);
+      if (currentTaskIndex !== -1) {
+        const [skippedTask] = activeTasks.splice(currentTaskIndex, 1);
+        const newActiveTasks = [...activeTasks, skippedTask];
+        const newTasks = [...newActiveTasks, ...completedTasks];
+        setTasks(newTasks);
+        if (typeof updateTaskOrder === 'function') {
+          await updateTaskOrder(newTasks);
+        }
+        // Select the next available active task by index (not by id)
+        if (activeTasks.length > 0) {
+          const nextIndex = currentTaskIndex < activeTasks.length ? currentTaskIndex : 0;
+          const nextTask = newActiveTasks[nextIndex];
+          if (nextTask && !nextTask.completed) {
+            selectTaskByIdNoReorder(nextTask.id);
+          }
+        }
+      }
+    }
 
     // If we're in a work session and timer is running, move to break
     if (sessionType === "work" && isRunning) {
@@ -115,7 +139,7 @@ export function usePomodoroLogic() {
         toggleTimer();
       }
     }
-  }, [selectedTaskId, userId, tasks, toggleTaskCompletion, sessionType, isRunning, sessionCount, settings, resetTimer, toggleTimer]);
+  }, [selectedTaskId, userId, tasks, toggleTaskCompletion, selectTaskByIdNoReorder, setTasks, updateTaskOrder, sessionType, isRunning, sessionCount, settings, resetTimer, toggleTimer]);
 
   // Skip to next session function
   const skipToNextSession = useCallback(() => {

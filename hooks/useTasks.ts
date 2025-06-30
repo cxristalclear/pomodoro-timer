@@ -171,6 +171,15 @@ export function useTasks(userId: string | undefined) {
     await updateTaskOrder(newTasks)
   }, [updateTaskOrder, tasks])
 
+  // Select a task by id without reordering (for skip/next logic)
+  const selectTaskByIdNoReorder = useCallback((taskId: number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      setCurrentTask(task.name);
+      setSelectedTaskId(task.id);
+    }
+  }, [tasks]);
+
   // setTasks for context: allow both array and updater function, but always call updateTaskOrder
   const setTasksForContext = useCallback((tasksOrUpdater: Task[] | ((prev: Task[]) => Task[])) => {
     if (typeof tasksOrUpdater === "function") {
@@ -195,9 +204,11 @@ export function useTasks(userId: string | undefined) {
     deleteTask,
     toggleTaskCompletion,
     selectTask,
+    selectTaskByIdNoReorder,
     currentTask,
     selectedTaskId,
     loadTasks,
     updateTask,
+    updateTaskOrder,
   }
 }
