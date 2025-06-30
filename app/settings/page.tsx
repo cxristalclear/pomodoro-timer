@@ -13,7 +13,7 @@ import { useState, useEffect } from "react"
  * Allows users to configure timer durations, sound settings, and auto-start options
  */
 function SettingsPageContent() {
-  const { settings, setSettings, dataLoading } = usePomodoro()
+  const { settings, setSettings, updateSettings, dataLoading } = usePomodoro()
   const [localSettings, setLocalSettings] = useState(settings)
   const [hasChanges, setHasChanges] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -44,7 +44,7 @@ function SettingsPageContent() {
     setSaving(true)
     setError(null)
     try {
-      await setSettings(localSettings)
+      await updateSettings(localSettings)
       setSaved(true)
       setHasChanges(false)
       setTimeout(() => setSaved(false), 2000)

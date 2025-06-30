@@ -66,7 +66,19 @@ export function useSettings(userId: string | undefined) {
     }
     // Save to DB
     if (userId) {
-      await pomodoroService.settings.upsert(userId, settingsToUpdate)
+      try {
+        const result = await pomodoroService.settings.upsert(userId, settingsToUpdate)
+        if (result?.error) {
+          console.error("Error saving settings to DB:", result.error)
+          throw result.error
+        }
+      } catch (err) {
+        console.error("Exception in updateSettings:", err)
+        throw err
+      }
+    } else {
+      console.error("No userId provided to updateSettings")
+      throw new Error("No userId provided")
     }
     return settingsToUpdate
   }

@@ -228,6 +228,11 @@ export function usePomodoroLogic() {
   });
   const { shortcuts } = useKeyboardShortcuts({});
 
+  // Wrapper for settings page: only takes newSettings
+  const updateSettingsForPage = async (newSettings: any) => {
+    return updateSettings(newSettings, isRunning, resetTimer);
+  };
+
   return {
     // Timer
     time,
@@ -269,7 +274,7 @@ export function usePomodoroLogic() {
       }
       await updateSettings(nextSettings, isRunning, resetTimer);
     },
-    updateSetting: updateSettings,
+    updateSettings: updateSettingsForPage,
     resetSettings,
     hasTimerSettingsChanged,
 

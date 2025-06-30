@@ -70,6 +70,7 @@ export interface PomodoroContextType {
 
   // Settings actions
   setSettings: (settings: Settings | ((prev: Settings) => Settings)) => void
+  updateSettings: (settings: Settings | ((prev: Settings) => Settings)) => Promise<void>
 }
 
 export const PomodoroContext = createContext<PomodoroContextType | undefined>(undefined)
