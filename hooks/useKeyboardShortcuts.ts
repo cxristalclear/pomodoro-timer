@@ -18,6 +18,11 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
         actions.nextTask()
       }
 
+      if (e.code === "ArrowDown" && actions.skipToNextSession) {
+        e.preventDefault()
+        actions.skipToNextSession()
+      }
+
       if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
           case "r":
@@ -61,6 +66,7 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
   const shortcuts = [
     { keys: 'Space', description: 'Start/Pause Timer' },
     { keys: '→', description: 'Complete Task & Next Session' },
+    { keys: '↓', description: 'Skip to Next Session' },
     { keys: 'Ctrl+R', description: 'Reset Timer' },
     { keys: 'Ctrl+T', description: 'Go to Tasks' },
     { keys: 'Ctrl+A', description: 'Go to Analytics' },

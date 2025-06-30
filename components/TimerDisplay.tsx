@@ -18,6 +18,30 @@ export const TimerDisplay: React.FC = () => {
 
   // Debug logging
   console.log("TimerDisplay - currentTask:", currentTask, "selectedTaskId:", selectedTaskId, "tasks:", tasks.length)
+  console.log("TimerDisplay - time:", time, "isRunning:", isRunning, "sessionType:", sessionType)
+  console.log("TimerDisplay - settings:", settings)
+
+  // Calculate elapsed time for elapsed mode
+  const getElapsedTime = () => {
+    const totalDuration = sessionType === "work" 
+      ? settings.workDuration * 60 
+      : sessionType === "shortBreak" 
+      ? settings.breakDuration * 60 
+      : settings.longBreakDuration * 60;
+    return totalDuration - time;
+  };
+
+  // Get display time based on mode
+  const getDisplayTime = () => {
+    console.log("getDisplayTime - timerDisplayMode:", settings.timerDisplayMode, "time:", time)
+    if (settings.timerDisplayMode === "elapsed") {
+      const elapsed = getElapsedTime();
+      console.log("getDisplayTime - elapsed:", elapsed)
+      return elapsed;
+    }
+    console.log("getDisplayTime - countdown:", time)
+    return time;
+  };
 
   /**
    * Get display text for current session
@@ -94,7 +118,7 @@ export const TimerDisplay: React.FC = () => {
         </div>
 
         {/* Timer display */}
-        <div className="text-8xl md:text-9xl font-thin mb-16 tracking-wider font-mono">{formatTime(time)}</div>
+        <div className="text-8xl md:text-9xl font-thin mb-16 tracking-wider font-mono">{formatTime(getDisplayTime())}</div>
 
         {/* Control buttons */}
         <div className="flex items-center gap-8">

@@ -1,12 +1,12 @@
 // Session tracking hook for Pomodoro
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import type { Session } from "@/contexts/PomodoroContext"
 import { pomodoroService } from "@/services/pomodoroService"
 
 export function useSessions(userId: string | undefined) {
   const [sessions, setSessions] = useState<Session[]>([])
   // Load sessions from DB
-  const loadSessions = async (limit = 100) => {
+  const loadSessions = useCallback(async (limit = 100) => {
     if (!userId) return
     const { data, error } = await pomodoroService.sessions.list(userId, limit)
     if (data && !error) {
@@ -19,7 +19,7 @@ export function useSessions(userId: string | undefined) {
         }))
       )
     }
-  }
+  }, [userId])
 
   // Add a session
   const addSession = async (session: Omit<Session, "completedAt"> & { date: string }) => {

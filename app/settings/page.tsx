@@ -20,6 +20,11 @@ function SettingsPageContent() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Debug logging
+  console.log("SettingsPage - settings:", settings)
+  console.log("SettingsPage - localSettings:", localSettings)
+  console.log("SettingsPage - dataLoading:", dataLoading)
+
   // Update local settings when global settings change
   useEffect(() => {
     setLocalSettings(settings)
@@ -245,6 +250,37 @@ function SettingsPageContent() {
               onChange={() => setLocalSettings((prev) => ({ ...prev, autoStartWork: !prev.autoStartWork }))}
               label="Auto-start Work Sessions"
             />
+          </div>
+
+          {/* Timer display settings */}
+          <div className="space-y-4">
+            <h3 className="text-gray-500 text-sm">Timer Display</h3>
+
+            <div>
+              <label className="block text-gray-500 text-sm mb-2">Display Mode</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "countdown" }))}
+                  className={`flex-1 px-3 py-2 rounded transition-colors ${
+                    localSettings.timerDisplayMode === "countdown"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  Countdown
+                </button>
+                <button
+                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "elapsed" }))}
+                  className={`flex-1 px-3 py-2 rounded transition-colors ${
+                    localSettings.timerDisplayMode === "elapsed"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  Elapsed
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Save/Reset buttons */}

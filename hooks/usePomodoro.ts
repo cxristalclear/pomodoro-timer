@@ -29,7 +29,40 @@ export function usePomodoroLogic() {
         ? settings.breakDuration * 60
         : settings.longBreakDuration * 60,
     sessionType,
-    onComplete: () => {}, // You can wire up your completion logic here
+    onComplete: async () => {
+      // Create session when timer completes
+      const sessionDuration = sessionType === "work" 
+        ? settings.workDuration 
+        : sessionType === "shortBreak" 
+        ? settings.breakDuration 
+        : settings.longBreakDuration;
+      
+      const sessionData = {
+        task: sessionType === "work" ? currentTask || "Work Session" : sessionType === "shortBreak" ? "Short Break" : "Long Break",
+        duration: sessionDuration,
+        date: new Date().toLocaleDateString(),
+      };
+      
+      await addSession(sessionData);
+      
+      // Auto-start next session if enabled
+      if (sessionType === "work" && settings.autoStartBreaks) {
+        // Move to break
+        setSessionCount(prev => prev + 1);
+        const nextSessionType = sessionCount % settings.sessionsUntilLongBreak === 0 ? "longBreak" : "shortBreak";
+        setSessionType(nextSessionType);
+        const newDuration = nextSessionType === "longBreak" 
+          ? settings.longBreakDuration * 60 
+          : settings.breakDuration * 60;
+        resetTimer(newDuration);
+        toggleTimer();
+      } else if ((sessionType === "shortBreak" || sessionType === "longBreak") && settings.autoStartWork) {
+        // Move to work
+        setSessionType("work");
+        resetTimer(settings.workDuration * 60);
+        toggleTimer();
+      }
+    },
     autoStart: false,
   });
   const { time, isRunning, toggleTimer, resetTimer } = timer;
@@ -84,6 +117,34 @@ export function usePomodoroLogic() {
     }
   }, [selectedTaskId, userId, tasks, toggleTaskCompletion, sessionType, isRunning, sessionCount, settings, resetTimer, toggleTimer]);
 
+  // Skip to next session function
+  const skipToNextSession = useCallback(() => {
+    if (sessionType === "work") {
+      // Move to break
+      setSessionCount(prev => prev + 1);
+      const nextSessionType = sessionCount % settings.sessionsUntilLongBreak === 0 ? "longBreak" : "shortBreak";
+      setSessionType(nextSessionType);
+      const newDuration = nextSessionType === "longBreak" 
+        ? settings.longBreakDuration * 60 
+        : settings.breakDuration * 60;
+      resetTimer(newDuration);
+      
+      // Auto-start break if enabled
+      if (settings.autoStartBreaks) {
+        toggleTimer();
+      }
+    } else {
+      // Move to work
+      setSessionType("work");
+      resetTimer(settings.workDuration * 60);
+      
+      // Auto-start work if enabled
+      if (settings.autoStartWork) {
+        toggleTimer();
+      }
+    }
+  }, [sessionType, sessionCount, settings, resetTimer, toggleTimer]);
+
   // Memoize the loadTasks function to prevent infinite re-renders
   const loadTasksWithLoading = useCallback(async () => {
     if (!userId) return;
@@ -104,11 +165,13 @@ export function usePomodoroLogic() {
     if (!authLoading) {
       if (userId) {
         loadTasksWithLoading();
+        // Also load sessions
+        sessionsHook.loadSessions();
       } else {
         setTasks([]);
       }
     }
-  }, [userId, authLoading, loadTasksWithLoading, setTasks]);
+  }, [userId, authLoading, loadTasksWithLoading]);
 
   // Auto-select first task when tasks are loaded and no task is selected
   useEffect(() => {
@@ -157,6 +220,7 @@ export function usePomodoroLogic() {
     toggleTimer,
     resetTimer,
     nextTask,
+    skipToNextSession,
     goTasks: () => router.push("/tasks"),
     goAnalytics: () => router.push("/analytics"),
     goSettings: () => router.push("/settings"),
@@ -219,5 +283,8 @@ export function usePomodoroLogic() {
 
     // Loading
     dataLoading,
+
+    // Skip to next session
+    skipToNextSession,
   };
 }

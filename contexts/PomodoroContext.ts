@@ -26,6 +26,7 @@ export interface Settings {
   soundVolume: number
   autoStartBreaks: boolean
   autoStartWork: boolean
+  timerDisplayMode: "countdown" | "elapsed"
 }
 
 export interface PomodoroContextType {
@@ -54,6 +55,7 @@ export interface PomodoroContextType {
   // Timer actions
   toggleTimer: () => void
   resetTimer: () => void
+  skipToNextSession: () => void
 
   // Task actions
   setNewTaskInput: (input: string) => void

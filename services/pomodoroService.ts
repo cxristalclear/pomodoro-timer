@@ -49,6 +49,7 @@ export const pomodoroService = {
         sound_volume: settings.soundVolume,
         auto_start_breaks: settings.autoStartBreaks,
         auto_start_work: settings.autoStartWork,
+        timer_display_mode: settings.timerDisplayMode,
       }
       // Try update, if not exists, insert
       const { data: existing } = await supabase.from("settings").select("user_id").eq("user_id", userId).single()

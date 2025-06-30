@@ -13,6 +13,7 @@ export function useSettings(userId: string | undefined) {
     soundVolume: 0.5,
     autoStartBreaks: true,
     autoStartWork: false,
+    timerDisplayMode: "countdown",
   });
 
   // Load settings on mount and when userId changes
@@ -25,18 +26,27 @@ export function useSettings(userId: string | undefined) {
   // Load settings from DB
   const loadSettings = async () => {
     if (!userId) return
-    const { data, error } = await pomodoroService.settings.get(userId)
-    if (data && !error) {
-      setSettings({
-        workDuration: data.work_duration,
-        breakDuration: data.break_duration,
-        longBreakDuration: data.long_break_duration,
-        sessionsUntilLongBreak: data.sessions_until_long_break,
-        soundEnabled: data.sound_enabled,
-        soundVolume: data.sound_volume,
-        autoStartBreaks: data.auto_start_breaks,
-        autoStartWork: data.auto_start_work,
-      })
+    try {
+      const { data, error } = await pomodoroService.settings.get(userId)
+      if (error) {
+        console.error("Error loading settings:", error)
+        return
+      }
+      if (data) {
+        setSettings({
+          workDuration: data.work_duration || 25,
+          breakDuration: data.break_duration || 5,
+          longBreakDuration: data.long_break_duration || 15,
+          sessionsUntilLongBreak: data.sessions_until_long_break || 4,
+          soundEnabled: data.sound_enabled ?? true,
+          soundVolume: data.sound_volume ?? 0.5,
+          autoStartBreaks: data.auto_start_breaks ?? true,
+          autoStartWork: data.auto_start_work ?? false,
+          timerDisplayMode: data.timer_display_mode || "countdown", // Default to countdown if not set
+        })
+      }
+    } catch (error) {
+      console.error("Error in loadSettings:", error)
     }
   }
 
@@ -72,6 +82,7 @@ export function useSettings(userId: string | undefined) {
       soundVolume: 0.5,
       autoStartBreaks: true,
       autoStartWork: false,
+      timerDisplayMode: "countdown",
     })
   }
 
