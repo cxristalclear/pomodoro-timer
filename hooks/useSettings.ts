@@ -1,5 +1,5 @@
 // Settings management hook for Pomodoro
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Settings } from "@/contexts/PomodoroContext"
 import { pomodoroService } from "@/services/pomodoroService"
 
@@ -13,7 +13,15 @@ export function useSettings(userId: string | undefined) {
     soundVolume: 0.5,
     autoStartBreaks: true,
     autoStartWork: false,
-  })
+  });
+
+  // Load settings on mount and when userId changes
+  useEffect(() => {
+    if (userId) {
+      loadSettings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
   // Load settings from DB
   const loadSettings = async () => {
     if (!userId) return
