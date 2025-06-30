@@ -5,13 +5,33 @@ import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { generateCalendarGrid, getIntensityColor, calculateAnalytics } from "@/lib/utils"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 
 /**
  * Analytics page component
  * Displays session statistics, activity calendar, and task breakdown
  */
 function AnalyticsPageContent() {
-  const { sessions, dataLoading } = usePomodoro()
+  const { sessions, dataLoading, getTaskStats } = usePomodoro()
+  const [taskStats, setTaskStats] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    totalPomodoros: 0,
+    avgPomodorosPerTask: 0
+  })
+
+  // Load task statistics
+  useEffect(() => {
+    const loadTaskStats = async () => {
+      try {
+        const stats = await getTaskStats()
+        setTaskStats(stats)
+      } catch (error) {
+        console.error("Error loading task stats:", error)
+      }
+    }
+    loadTaskStats()
+  }, [getTaskStats])
 
   // Calculate analytics data
   const analytics = calculateAnalytics(sessions)
@@ -61,6 +81,51 @@ function AnalyticsPageContent() {
           </div>
         </div>
 
+        {/* Task completion statistics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="text-center">
+            <p className="text-3xl font-light">{taskStats.totalTasks}</p>
+            <p className="text-gray-500 text-sm">Total Tasks</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-light">{taskStats.completedTasks}</p>
+            <p className="text-gray-500 text-sm">Completed</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-light">{taskStats.totalPomodoros}</p>
+            <p className="text-gray-500 text-sm">Pomodoros</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-light">{taskStats.avgPomodorosPerTask.toFixed(1)}</p>
+            <p className="text-gray-500 text-sm">Avg/Task</p>
+          </div>
+        </div>
+
+        {/* Completion rate */}
+        {taskStats.totalTasks > 0 && (
+          <div className="mb-8">
+            <h3 className="text-gray-500 text-sm mb-4">Task Completion Rate</h3>
+            <div className="bg-gray-900 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-400">Completion Rate</span>
+                <span className="text-sm text-white">
+                  {((taskStats.completedTasks / taskStats.totalTasks) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-800 rounded-full h-2">
+                <div 
+                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(taskStats.completedTasks / taskStats.totalTasks) * 100}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 mt-2">
+                <span>{taskStats.completedTasks} completed</span>
+                <span>{taskStats.totalTasks - taskStats.completedTasks} remaining</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Activity calendar grid */}
         <div className="mb-8">
           <h3 className="text-gray-500 text-sm mb-4">Activity (Last 30 Days)</h3>
@@ -99,6 +164,42 @@ function AnalyticsPageContent() {
                     <span className="text-gray-500">{count}</span>
                   </div>
                 ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pomodoro efficiency insights */}
+        {taskStats.totalPomodoros > 0 && (
+          <div className="mt-8">
+            <h3 className="text-gray-500 text-sm mb-4">Pomodoro Insights</h3>
+            <div className="space-y-4">
+              <div className="bg-gray-900 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-yellow-500">🍅</span>
+                  <span className="text-sm text-gray-400">Average Pomodoros per Task</span>
+                </div>
+                <p className="text-2xl font-light">{taskStats.avgPomodorosPerTask.toFixed(1)}</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {taskStats.avgPomodorosPerTask < 2 ? "Great efficiency!" : 
+                   taskStats.avgPomodorosPerTask < 4 ? "Good pace" : 
+                   "Consider breaking down complex tasks"}
+                </p>
+              </div>
+              
+              {taskStats.completedTasks > 0 && (
+                <div className="bg-gray-900 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-green-500">✓</span>
+                  <span className="text-sm text-gray-400">Completion Rate</span>
+                  </div>
+                  <p className="text-2xl font-light">
+                    {((taskStats.completedTasks / taskStats.totalTasks) * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {taskStats.completedTasks} of {taskStats.totalTasks} tasks completed
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

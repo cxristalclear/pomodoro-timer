@@ -5,6 +5,7 @@ import { pomodoroService } from "@/services/pomodoroService"
 
 export function useSessions(userId: string | undefined) {
   const [sessions, setSessions] = useState<Session[]>([])
+  
   // Load sessions from DB
   const loadSessions = useCallback(async (limit = 100) => {
     if (!userId) return
@@ -13,6 +14,7 @@ export function useSessions(userId: string | undefined) {
       setSessions(
         data.map((s: any) => ({
           task: s.task,
+          taskId: s.task_id,
           duration: s.duration,
           completedAt: s.completed_at,
           date: s.date,
@@ -32,12 +34,42 @@ export function useSessions(userId: string | undefined) {
     ])
   }
 
-  // Session stats utilities (example: getSessionsByDate, getTodaysFocusTime, getSessionStats)
+  // Save completed session with task tracking
+  const saveCompletedSession = useCallback(async (taskId: number | null, taskName: string, duration: number) => {
+    if (!userId) return
+    try {
+      const { error } = await pomodoroService.sessions.saveCompletedSession(userId, taskId, taskName, duration)
+      if (error) {
+        console.error("Error saving completed session:", error)
+        return
+      }
+      
+      // Add to local state
+      const today = new Date().toISOString().split('T')[0]
+      const newSession: Session = {
+        task: taskName,
+        taskId: taskId || undefined,
+        duration: duration,
+        completedAt: new Date().toISOString(),
+        date: today
+      }
+      
+      setSessions((prev) => [newSession, ...prev])
+    } catch (error) {
+      console.error("Error saving completed session:", error)
+    }
+  }, [userId])
+
+  // Session stats utilities
   const getSessionsByDate = (date: string) => sessions.filter((s) => s.date === date)
+  
   const getTodaysFocusTime = () => {
     const today = new Date().toLocaleDateString()
-    return sessions.filter((s) => s.date === today && s.task !== "Short Break" && s.task !== "Long Break").reduce((acc, s) => acc + (s.duration || 0), 0)
+    return sessions
+      .filter((s) => s.date === today && s.task !== "Short Break" && s.task !== "Long Break")
+      .reduce((acc, s) => acc + (s.duration || 0), 0)
   }
+  
   const getSessionStats = () => {
     return {
       total: sessions.length,
@@ -46,13 +78,28 @@ export function useSessions(userId: string | undefined) {
     }
   }
 
+  // Get sessions for a specific task
+  const getSessionsForTask = useCallback((taskId: number) => {
+    return sessions.filter(s => s.taskId === taskId)
+  }, [sessions])
+
+  // Get total pomodoros for a task
+  const getTaskPomodoros = useCallback((taskId: number) => {
+    return sessions
+      .filter(s => s.taskId === taskId && s.task !== "Short Break" && s.task !== "Long Break")
+      .length
+  }, [sessions])
+
   return {
     sessions,
     setSessions,
     loadSessions,
     addSession,
+    saveCompletedSession,
     getSessionsByDate,
     getTodaysFocusTime,
     getSessionStats,
+    getSessionsForTask,
+    getTaskPomodoros,
   }
 }

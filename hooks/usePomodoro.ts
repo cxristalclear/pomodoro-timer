@@ -45,6 +45,11 @@ export function usePomodoroLogic() {
       
       await addSession(sessionData);
       
+      // If this was a work session, increment pomodoros for the current task
+      if (sessionType === "work" && selectedTaskId) {
+        await incrementTaskPomodoros(selectedTaskId);
+      }
+      
       // Auto-start next session if enabled
       if (sessionType === "work" && settings.autoStartBreaks) {
         // Move to break
@@ -65,15 +70,42 @@ export function usePomodoroLogic() {
     },
     autoStart: false,
   });
-  const { time, isRunning, toggleTimer, resetTimer } = timer;
+  const { time, isRunning, toggleTimer, resetTimer, setTime, setIsRunning, incrementTime, decrementTime } = timer;
 
   // Tasks
   const tasksHook = useTasks(userId);
-  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, selectTaskByIdNoReorder, currentTask, selectedTaskId, loadTasks, toggleTaskCompletion, updateTask, updateTaskOrder } = tasksHook;
+  const { 
+    tasks, 
+    setTasks, 
+    newTaskInput, 
+    setNewTaskInput, 
+    addTask, 
+    deleteTask, 
+    selectTask, 
+    selectTaskByIdNoReorder, 
+    currentTask, 
+    selectedTaskId, 
+    loadTasks, 
+    toggleTaskCompletion, 
+    updateTask, 
+    updateTaskOrder,
+    incrementTaskPomodoros,
+    getTaskStats
+  } = tasksHook;
 
   // Sessions
   const sessionsHook = useSessions(userId);
-  const { sessions, setSessions, addSession, getSessionsByDate, getTodaysFocusTime, getSessionStats } = sessionsHook;
+  const { 
+    sessions, 
+    setSessions, 
+    addSession, 
+    saveCompletedSession,
+    getSessionsByDate, 
+    getTodaysFocusTime, 
+    getSessionStats,
+    getSessionsForTask,
+    getTaskPomodoros
+  } = sessionsHook;
   const [completedTasks, setCompletedTasks] = useState(0);
 
   // Audio/Notifications
@@ -82,6 +114,102 @@ export function usePomodoroLogic() {
 
   // Data loading state
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Helper to get full duration for a session type
+  const getSessionFullDuration = (type: "work" | "shortBreak" | "longBreak") => {
+    if (type === "work") return settings.workDuration * 60;
+    if (type === "shortBreak") return settings.breakDuration * 60;
+    return settings.longBreakDuration * 60;
+  };
+
+  // Reset current session (R)
+  const resetCurrentSession = useCallback(() => {
+    setIsRunning(false);
+    const fullDuration = getSessionFullDuration(sessionType);
+    setTime(fullDuration);
+    // Do not change sessionType, sessionCount, or save session
+  }, [sessionType, settings, setTime]);
+
+  // Skip to next session (S)
+  const skipToNextSession = useCallback(() => {
+    // 1. Stop timer
+    setIsRunning(false);
+    let shouldSaveSession = false;
+    // 2. If timer was running and > 50% complete, save session to DB
+    if (isRunning) {
+      const fullDuration = getSessionFullDuration(sessionType);
+      if (fullDuration > 0 && time < fullDuration / 2) {
+        shouldSaveSession = false;
+      } else {
+        shouldSaveSession = true;
+      }
+    }
+    if (shouldSaveSession) {
+      // Save session to DB with task tracking
+      const sessionDuration = getSessionFullDuration(sessionType) / 60;
+      const taskName = sessionType === "work" ? currentTask || "Work Session" : sessionType === "shortBreak" ? "Short Break" : "Long Break";
+      
+      // Use the enhanced session saving with task_id
+      saveCompletedSession(selectedTaskId, taskName, sessionDuration);
+      
+      // If this was a work session, increment pomodoros for the current task
+      if (sessionType === "work" && selectedTaskId) {
+        incrementTaskPomodoros(selectedTaskId);
+      }
+    }
+    // 3. Increment session count if leaving a WORK session
+    let newSessionCount = sessionCount;
+    let nextSessionType = sessionType;
+    if (sessionType === "work") {
+      if (sessionCount < settings.sessionsUntilLongBreak) {
+        nextSessionType = "shortBreak";
+        newSessionCount = sessionCount + 1;
+      } else {
+        nextSessionType = "longBreak";
+        newSessionCount = 1;
+      }
+    } else if (sessionType === "shortBreak" || sessionType === "longBreak") {
+      nextSessionType = "work";
+      // sessionCount stays the same
+    }
+    setSessionType(nextSessionType);
+    setSessionCount(newSessionCount);
+    // 5. Set timer to new session's full duration
+    const newDuration = getSessionFullDuration(nextSessionType);
+    setTime(newDuration);
+    // 6. Check auto-start settings
+    if ((nextSessionType === "shortBreak" || nextSessionType === "longBreak") && settings.autoStartBreaks) {
+      setIsRunning(true);
+    } else if (nextSessionType === "work" && settings.autoStartWork) {
+      setIsRunning(true);
+    } else {
+      setIsRunning(false);
+    }
+  }, [isRunning, sessionType, sessionCount, settings, setTime, setIsRunning, setSessionType, setSessionCount, saveCompletedSession, selectedTaskId, incrementTaskPomodoros, currentTask, time]);
+
+  // Cycle to next session type (Down)
+  const nextSessionTypeCycle = useCallback(() => {
+    setIsRunning(false);
+    let nextType: "work" | "shortBreak" | "longBreak";
+    if (sessionType === "work") nextType = "shortBreak";
+    else if (sessionType === "shortBreak") nextType = "longBreak";
+    else nextType = "work";
+    setSessionType(nextType);
+    setTime(getSessionFullDuration(nextType));
+    // Do not change sessionCount or save session
+  }, [sessionType, setSessionType, setTime, settings]);
+
+  // Cycle to previous session type (Up)
+  const previousSessionType = useCallback(() => {
+    setIsRunning(false);
+    let prevType: "work" | "shortBreak" | "longBreak";
+    if (sessionType === "work") prevType = "longBreak";
+    else if (sessionType === "shortBreak") prevType = "work";
+    else prevType = "shortBreak";
+    setSessionType(prevType);
+    setTime(getSessionFullDuration(prevType));
+    // Do not change sessionCount or save session
+  }, [sessionType, setSessionType, setTime, settings]);
 
   // Next task function - completes current task and moves to next session
   const nextTask = useCallback(async () => {
@@ -141,95 +269,6 @@ export function usePomodoroLogic() {
     }
   }, [selectedTaskId, userId, tasks, toggleTaskCompletion, selectTaskByIdNoReorder, setTasks, updateTaskOrder, sessionType, isRunning, sessionCount, settings, resetTimer, toggleTimer]);
 
-  // Skip to next session function
-  const skipToNextSession = useCallback(() => {
-    if (sessionType === "work") {
-      // Move to break
-      setSessionCount(prev => prev + 1);
-      const nextSessionType = sessionCount % settings.sessionsUntilLongBreak === 0 ? "longBreak" : "shortBreak";
-      setSessionType(nextSessionType);
-      const newDuration = nextSessionType === "longBreak" 
-        ? settings.longBreakDuration * 60 
-        : settings.breakDuration * 60;
-      resetTimer(newDuration);
-      
-      // Auto-start break if enabled
-      if (settings.autoStartBreaks) {
-        toggleTimer();
-      }
-    } else {
-      // Move to work
-      setSessionType("work");
-      resetTimer(settings.workDuration * 60);
-      
-      // Auto-start work if enabled
-      if (settings.autoStartWork) {
-        toggleTimer();
-      }
-    }
-  }, [sessionType, sessionCount, settings, resetTimer, toggleTimer]);
-
-  // Memoize the loadTasks function to prevent infinite re-renders
-  const loadTasksWithLoading = useCallback(async () => {
-    if (!userId) return;
-    console.log("Loading tasks for user:", userId);
-    setDataLoading(true);
-    try {
-      await loadTasks();
-      console.log("Tasks loaded successfully");
-    } catch (error) {
-      console.error("Error loading tasks:", error);
-    } finally {
-      setDataLoading(false);
-    }
-  }, [userId, loadTasks]);
-
-  // Load tasks when userId changes and auth is not loading
-  useEffect(() => {
-    if (!authLoading) {
-      if (userId) {
-        loadTasksWithLoading();
-        // Also load sessions
-        sessionsHook.loadSessions();
-      } else {
-        setTasks([]);
-      }
-    }
-  }, [userId, authLoading, loadTasksWithLoading]);
-
-  // Auto-select first task when tasks are loaded and no task is selected
-  useEffect(() => {
-    if (tasks.length > 0 && !selectedTaskId && !dataLoading) {
-      const firstActiveTask = tasks.find(task => !task.completed);
-      if (firstActiveTask) {
-        console.log("Auto-selecting first task:", firstActiveTask.name);
-        selectTask(firstActiveTask);
-      }
-    }
-  }, [tasks, selectedTaskId, dataLoading, selectTask]);
-
-  // Auto-select next task when current task is deleted or completed
-  useEffect(() => {
-    if (selectedTaskId && tasks.length > 0 && !dataLoading) {
-      const currentTaskExists = tasks.find(task => task.id === selectedTaskId);
-      if (!currentTaskExists) {
-        // Current task was deleted, select the next available task
-        const nextActiveTask = tasks.find(task => !task.completed);
-        if (nextActiveTask) {
-          console.log("Current task removed, selecting next task:", nextActiveTask.name);
-          selectTask(nextActiveTask);
-        }
-      } else if (currentTaskExists.completed) {
-        // Current task was completed, select the next available task
-        const nextActiveTask = tasks.find(task => !task.completed);
-        if (nextActiveTask) {
-          console.log("Current task completed, selecting next task:", nextActiveTask.name);
-          selectTask(nextActiveTask);
-        }
-      }
-    }
-  }, [tasks, selectedTaskId, dataLoading, selectTask]);
-
   // Select task and navigate to timer
   const selectTaskAndNavigate = useCallback(async (task: Task) => {
     // First select the task (this will trigger the reordering)
@@ -257,6 +296,41 @@ export function usePomodoroLogic() {
     return updateSettings(newSettings, isRunning, resetTimer);
   };
 
+  // Previous task function
+  const previousTask = useCallback(() => {
+    if (!selectedTaskId) return;
+    const activeTasks = tasks.filter(t => !t.completed);
+    const currentIndex = activeTasks.findIndex(t => t.id === selectedTaskId);
+    if (currentIndex > 0) {
+      const prevTask = activeTasks[currentIndex - 1];
+      if (prevTask) {
+        selectTaskByIdNoReorder(prevTask.id);
+      }
+    }
+  }, [selectedTaskId, tasks, selectTaskByIdNoReorder]);
+
+  // Toggle fullscreen/focus mode (stub)
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }, []);
+
+  // Toggle notifications (stub)
+  const toggleNotifications = useCallback(() => {
+    // Implement notification toggle logic here
+    requestNotificationPermission();
+  }, [requestNotificationPermission]);
+
+  // Toggle mute (stub)
+  const toggleMute = useCallback(() => {
+    // Implement mute/unmute logic here
+    // This would likely toggle soundEnabled in settings
+    setSettings((prev) => ({ ...prev, soundEnabled: !prev.soundEnabled }));
+  }, [setSettings]);
+
   return {
     // Timer
     time,
@@ -265,6 +339,8 @@ export function usePomodoroLogic() {
     sessionCount,
     toggleTimer,
     resetTimer,
+    incrementTime,
+    decrementTime,
 
     // Tasks
     tasks,
@@ -280,6 +356,8 @@ export function usePomodoroLogic() {
     updateTask,
     setTasks,
     nextTask,
+    incrementTaskPomodoros,
+    getTaskStats,
 
     // Sessions
     sessions,
@@ -287,6 +365,8 @@ export function usePomodoroLogic() {
     getSessionsByDate,
     getTodaysFocusTime,
     getSessionStats,
+    getSessionsForTask,
+    getTaskPomodoros,
 
     // Settings
     settings,
@@ -315,5 +395,20 @@ export function usePomodoroLogic() {
 
     // Skip to next session
     skipToNextSession,
+
+    // Previous task
+    previousTask,
+
+    // Previous session type
+    previousSessionType,
+
+    // Toggle fullscreen
+    toggleFullscreen,
+
+    // Toggle notifications
+    toggleNotifications,
+
+    // Toggle mute
+    toggleMute,
   };
 }

@@ -1,7 +1,10 @@
 // Keyboard shortcuts hook for Pomodoro
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 export function useKeyboardShortcuts(actions: Record<string, () => void>) {
+  // State for showing the shortcuts modal
+  const [showShortcuts, setShowShortcuts] = useState(false)
+
   // Keyboard shortcut logic migrated from main hook
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -55,12 +58,25 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
               actions.goMenu()
             }
             break
+          case "h":
+          case "/":
+            e.preventDefault()
+            setShowShortcuts(true)
+            break
+        }
+      }
+      // Escape closes modal/dialog or goes back
+      if (e.key === "Escape") {
+        if (showShortcuts) {
+          setShowShortcuts(false)
+        } else if (actions.closeModalOrBack) {
+          actions.closeModalOrBack()
         }
       }
     }
     window.addEventListener("keydown", handleKeyPress)
     return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [actions])
+  }, [actions, showShortcuts])
 
   // Return info about shortcuts for UI display
   const shortcuts = [
@@ -72,7 +88,10 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
     { keys: 'Ctrl+A', description: 'Go to Analytics' },
     { keys: 'Ctrl+S', description: 'Go to Settings' },
     { keys: 'Ctrl+M', description: 'Go to Menu' },
+    { keys: 'Ctrl+H', description: 'Show Help/Shortcuts' },
+    { keys: 'Ctrl+/', description: 'Show Keyboard Shortcuts' },
+    { keys: 'Escape', description: 'Close Modal/Dialog or Go Back' },
   ]
 
-  return { shortcuts }
+  return { shortcuts, showShortcuts, setShowShortcuts }
 }

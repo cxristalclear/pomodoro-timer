@@ -6,39 +6,71 @@ import { useRouter } from "next/navigation"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { formatTime } from "@/lib/utils"
 import Link from "next/link"
+import { useTimerShortcuts } from "@/hooks/useTimerShortcuts"
 
 /**
  * Main timer display component showing the countdown, controls, and session info
  */
 export const TimerDisplay: React.FC = () => {
-  const { time, isRunning, sessionType, sessionCount, currentTask, completedTasks, settings, toggleTimer, resetTimer, tasks, selectedTaskId } =
-    usePomodoro()
+  const {
+    time,
+    isRunning,
+    sessionType,
+    sessionCount,
+    currentTask,
+    completedTasks,
+    settings,
+    toggleTimer,
+    resetTimer,
+    nextTask,
+    previousTask,
+    skipToNextSession,
+    previousSessionType,
+    incrementTime,
+    decrementTime,
+    toggleFullscreen,
+    toggleNotifications,
+    toggleMute,
+    tasks,
+    selectedTaskId,
+  } = usePomodoro()
 
   const router = useRouter()
+
+  // Reset all (timer + session count)
+  const resetAll = () => {
+    resetTimer();
+    // Optionally reset session count if you have a setter
+    // setSessionCount(1);
+    // If you want to reset sessionCount, expose setSessionCount from context
+  }
+
+  // Timer shortcuts integration
+  const { shortcuts, showShortcuts, setShowShortcuts } = useTimerShortcuts({
+    toggleTimer,
+    resetTimer,
+    skipToNextSession,
+    resetAll,
+    nextTask,
+    previousTask,
+    previousSessionType,
+    incrementTime,
+    decrementTime,
+    toggleFullscreen,
+    toggleNotifications,
+    toggleMute,
+  })
 
   // Debug logging
   console.log("TimerDisplay - currentTask:", currentTask, "selectedTaskId:", selectedTaskId, "tasks:", tasks.length)
   console.log("TimerDisplay - time:", time, "isRunning:", isRunning, "sessionType:", sessionType)
   console.log("TimerDisplay - settings:", settings)
 
-  // Calculate elapsed time for elapsed mode
-  const getElapsedTime = () => {
-    const totalDuration = sessionType === "work" 
-      ? settings.workDuration * 60 
-      : sessionType === "shortBreak" 
-      ? settings.breakDuration * 60 
-      : settings.longBreakDuration * 60;
-    return totalDuration - time;
-  };
-
   // Get display time based on mode
   const getDisplayTime = () => {
     console.log("getDisplayTime - timerDisplayMode:", settings.timerDisplayMode, "time:", time)
-    if (settings.timerDisplayMode === "elapsed") {
-      const elapsed = getElapsedTime();
-      console.log("getDisplayTime - elapsed:", elapsed)
-      return elapsed;
-    }
+    // For now, always show countdown mode since we removed elapsed mode
+    // In the future, we can add analog mode support here
     console.log("getDisplayTime - countdown:", time)
     return time;
   };
@@ -140,7 +172,30 @@ export const TimerDisplay: React.FC = () => {
           </button>
         </div>
 
-        
+        {/* Minimal timer shortcuts popout */}
+        {showShortcuts && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+            onClick={() => setShowShortcuts(false)}
+            style={{ backdropFilter: 'blur(2px)' }}
+          >
+            <div
+              className="bg-gray-900 text-white rounded-lg shadow-lg p-6 min-w-[320px] max-w-[90vw] border border-gray-700"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-semibold mb-4 text-center">Timer Shortcuts</h2>
+              <ul className="space-y-2">
+                {shortcuts.map((s, i) => (
+                  <li key={i} className="flex justify-between text-sm">
+                    <span className="text-gray-400">{s.keys}</span>
+                    <span className="text-gray-200">{s.description}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 text-center text-xs text-gray-500">Press <span className="font-mono">Escape</span> to close</div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

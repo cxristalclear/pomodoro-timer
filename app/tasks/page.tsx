@@ -65,7 +65,7 @@ function TasksPageContent() {
   }
 
   /**
-   * Handle Enter key press in edit mode
+   * Handle edit key down
    */
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -76,37 +76,28 @@ function TasksPageContent() {
   }
 
   /**
-   * Handle task click with delay for double-click detection
+   * Handle task click (single click selects, double click edits)
    */
   const handleTaskClick = (task: Task) => {
-    // Clear any existing timeout
-    if (clickTimeout) {
+    if (clickTimeout && lastClickedTask === task.id) {
+      // Double click - edit
       clearTimeout(clickTimeout)
       setClickTimeout(null)
-    }
-
-    // If this is the same task that was clicked before, it might be a double-click
-    if (lastClickedTask === task.id) {
       setLastClickedTask(null)
       startEditing(task)
-      return
+    } else {
+      // Single click - select and navigate
+      setLastClickedTask(task.id)
+      const timeout = setTimeout(() => {
+        selectTaskAndNavigate(task)
+        setClickTimeout(null)
+        setLastClickedTask(null)
+      }, 200)
+      setClickTimeout(timeout)
     }
-
-    // Set the last clicked task
-    setLastClickedTask(task.id)
-
-    // Set a timeout for the single click action
-    const timeout = setTimeout(() => {
-      selectTaskAndNavigate(task)
-      setLastClickedTask(null)
-    }, 300) // 300ms delay to allow for double-click
-
-    setClickTimeout(timeout)
   }
 
-  /**
-   * Drag and drop handlers for task reordering
-   */
+  // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, task: Task) => {
     setDraggedTask(task)
     e.dataTransfer.effectAllowed = "move"
@@ -114,7 +105,6 @@ function TasksPageContent() {
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
     setDragOverIndex(index)
   }
 
@@ -229,7 +219,7 @@ function TasksPageContent() {
                   dragOverIndex === index ? "bg-gray-800 border-t-2 border-gray-600" : ""
                 } ${draggedTask?.id === task.id ? "opacity-50" : ""} ${
                   selectedTaskId === task.id ? "" : ""
-                }`}
+                } ${task.actualPomodoros > 0 ? "border-l-4 border-blue-500" : ""}`}
               >
                 <button
                   onClick={(e) => {
@@ -292,6 +282,17 @@ function TasksPageContent() {
                   </button>
                 )}
                 
+                {/* Pomodoro progress indicator */}
+                {task.actualPomodoros > 0 && (
+                  <div className="flex items-center gap-1 text-sm text-gray-500">
+                    <span className="text-yellow-500">🍅</span>
+                    <span>{task.actualPomodoros}</span>
+                    {task.estimatedPomodoros > 1 && (
+                      <span className="text-gray-600">/ {task.estimatedPomodoros}</span>
+                    )}
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-1">
                   {editingTaskId !== task.id && (
                     <button
@@ -323,7 +324,7 @@ function TasksPageContent() {
               {tasks
                 .filter((t) => t.completed)
                 .map((task) => (
-                  <div key={task.id} className="flex items-center gap-3 p-3 opacity-50 hover:opacity-75 transition-opacity">
+                  <div key={task.id} className="flex items-center gap-3 p-3 opacity-60 hover:opacity-75 transition-opacity">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -374,6 +375,24 @@ function TasksPageContent() {
                       </span>
                     )}
                     
+                    {/* Completion info */}
+                    {task.completedAt && (
+                      <div className="text-xs text-gray-600">
+                        {new Date(task.completedAt).toLocaleDateString()}
+                      </div>
+                    )}
+                    
+                    {/* Pomodoro progress for completed tasks */}
+                    {task.actualPomodoros > 0 && (
+                      <div className="flex items-center gap-1 text-sm text-gray-500">
+                        <span className="text-yellow-500">🍅</span>
+                        <span>{task.actualPomodoros}</span>
+                        {task.estimatedPomodoros > 1 && (
+                          <span className="text-gray-600">/ {task.estimatedPomodoros}</span>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-1">
                       {editingTaskId !== task.id && (
                         <button
@@ -400,12 +419,14 @@ function TasksPageContent() {
             <p>Drag and drop tasks to reorder them</p>
             <p>Click task to select and go to timer, double-click to edit</p>
             <p>Click circle to complete, checkmark to uncomplete</p>
+            <p>🍅 shows pomodoro progress for each task</p>
           </div>
         )}
         {tasks.filter((t) => !t.completed).length <= 1 && tasks.length > 0 && (
           <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
             <p>Click task to select and go to timer, double-click to edit</p>
             <p>Click circle to complete, checkmark to uncomplete</p>
+            <p>🍅 shows pomodoro progress for each task</p>
           </div>
         )}
       </div>

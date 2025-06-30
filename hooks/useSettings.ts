@@ -13,7 +13,7 @@ export function useSettings(userId: string | undefined) {
     soundVolume: 0.5,
     autoStartBreaks: true,
     autoStartWork: false,
-    timerDisplayMode: "countdown",
+    timerDisplayMode: "digital",
   });
 
   // Load settings on mount and when userId changes
@@ -42,7 +42,7 @@ export function useSettings(userId: string | undefined) {
           soundVolume: data.sound_volume ?? 0.5,
           autoStartBreaks: data.auto_start_breaks ?? true,
           autoStartWork: data.auto_start_work ?? false,
-          timerDisplayMode: data.timer_display_mode || "countdown", // Default to countdown if not set
+          timerDisplayMode: data.timer_display_mode || "digital", // Default to digital if not set
         })
       }
     } catch (error) {
@@ -94,7 +94,7 @@ export function useSettings(userId: string | undefined) {
       soundVolume: 0.5,
       autoStartBreaks: true,
       autoStartWork: false,
-      timerDisplayMode: "countdown",
+      timerDisplayMode: "digital",
     })
   }
 

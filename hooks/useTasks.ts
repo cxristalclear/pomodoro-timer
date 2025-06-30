@@ -17,11 +17,14 @@ export function useTasks(userId: string | undefined) {
         return
       }
       if (data) {
+        console.log("Loaded tasks from DB:", data)
         setTasks(
           data.map((t: any) => ({
             id: t.id,
             name: t.name,
             completed: t.completed,
+            estimatedPomodoros: t.estimated_pomodoros || 1,
+            actualPomodoros: t.actual_pomodoros || 0,
             createdAt: t.created_at,
             completedAt: t.completed_at,
           }))
@@ -35,24 +38,32 @@ export function useTasks(userId: string | undefined) {
   // Add a new task
   const addTask = useCallback(async () => {
     if (newTaskInput.trim() && userId) {
+      console.log("Adding task:", { newTaskInput: newTaskInput.trim(), userId, tasksLength: tasks.length })
       try {
         const { data, error } = await pomodoroService.tasks.create(userId, newTaskInput.trim(), tasks.length)
+        console.log("Add task response:", { data, error })
         if (error) {
           console.error("Error adding task:", error)
+          console.error("Error details:", error.details)
+          console.error("Error hint:", error.hint)
           return
         }
         if (data) {
+          console.log("Task created successfully:", data)
           const newTask: Task = {
             id: data.id,
             name: data.name,
             completed: false,
+            estimatedPomodoros: data.estimated_pomodoros || 1,
+            actualPomodoros: data.actual_pomodoros || 0,
             createdAt: data.created_at,
           }
+          console.log("New task object:", newTask)
           setTasks((prev) => [...prev, newTask])
           setNewTaskInput("")
         }
       } catch (error) {
-        console.error("Error adding task:", error)
+        console.error("Exception adding task:", error)
       }
     }
   }, [newTaskInput, userId, tasks.length])
@@ -73,30 +84,33 @@ export function useTasks(userId: string | undefined) {
     }
   }, [userId])
 
-  // Toggle task completion
+  // Toggle task completion with proper validation
   const toggleTaskCompletion = useCallback(async (taskId: number) => {
     if (userId) {
       try {
         const currentTask = tasks.find(task => task.id === taskId)
         if (!currentTask) return
 
-        const newCompletedState = !currentTask.completed
-        const completedAt = newCompletedState ? new Date().toISOString() : undefined
+        // Validate before completing
+        if (!currentTask.completed && (!currentTask.name || currentTask.name.trim() === '')) {
+          throw new Error('Task must have a name before completing')
+        }
 
-        const { error } = await pomodoroService.tasks.update(userId, taskId, {
-          completed: newCompletedState,
-          completed_at: completedAt
-        } as any)
-
+        const { error } = await pomodoroService.tasks.toggleTaskCompletion(userId, taskId)
         if (error) {
           console.error("Error updating task completion:", error)
           return
         }
 
+        // Update local state
         setTasks((prev) =>
           prev.map((task) =>
             task.id === taskId
-              ? { ...task, completed: newCompletedState, completedAt }
+              ? { 
+                  ...task, 
+                  completed: !task.completed, 
+                  completedAt: !task.completed ? new Date().toISOString() : undefined 
+                }
               : task
           )
         )
@@ -125,6 +139,52 @@ export function useTasks(userId: string | undefined) {
         )
       } catch (error) {
         console.error("Error updating task:", error)
+      }
+    }
+  }, [userId])
+
+  // Increment pomodoros for a task
+  const incrementTaskPomodoros = useCallback(async (taskId: number) => {
+    try {
+      const { error } = await pomodoroService.tasks.incrementPomodoros(taskId)
+      if (error) {
+        console.error("Error incrementing pomodoros:", error)
+        return
+      }
+
+      // Update local state
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId
+            ? { ...task, actualPomodoros: task.actualPomodoros + 1 }
+            : task
+        )
+      )
+    } catch (error) {
+      console.error("Error incrementing pomodoros:", error)
+    }
+  }, [])
+
+  // Get task statistics
+  const getTaskStats = useCallback(async () => {
+    if (!userId) {
+      return {
+        totalTasks: 0,
+        completedTasks: 0,
+        totalPomodoros: 0,
+        avgPomodorosPerTask: 0
+      }
+    }
+
+    try {
+      return await pomodoroService.tasks.getTaskStats(userId)
+    } catch (error) {
+      console.error("Error getting task stats:", error)
+      return {
+        totalTasks: 0,
+        completedTasks: 0,
+        totalPomodoros: 0,
+        avgPomodorosPerTask: 0
       }
     }
   }, [userId])
@@ -210,5 +270,7 @@ export function useTasks(userId: string | undefined) {
     loadTasks,
     updateTask,
     updateTaskOrder,
+    incrementTaskPomodoros,
+    getTaskStats,
   }
 }

@@ -6,12 +6,15 @@ export interface Task {
   id: number
   name: string
   completed: boolean
+  estimatedPomodoros: number
+  actualPomodoros: number
   createdAt: string
   completedAt?: string
 }
 
 export interface Session {
   task: string
+  taskId?: number
   duration: number
   completedAt: string
   date: string
@@ -26,7 +29,7 @@ export interface Settings {
   soundVolume: number
   autoStartBreaks: boolean
   autoStartWork: boolean
-  timerDisplayMode: "countdown" | "elapsed"
+  timerDisplayMode?: "digital" | "analog"
 }
 
 export interface PomodoroContextType {
@@ -56,6 +59,13 @@ export interface PomodoroContextType {
   toggleTimer: () => void
   resetTimer: () => void
   skipToNextSession: () => void
+  previousTask: () => void
+  previousSessionType: () => void
+  incrementTime: (seconds: number) => void
+  decrementTime: (seconds: number) => void
+  toggleFullscreen: () => void
+  toggleNotifications: () => void
+  toggleMute: () => void
 
   // Task actions
   setNewTaskInput: (input: string) => void
@@ -67,6 +77,13 @@ export interface PomodoroContextType {
   nextTask: () => void
   updateTask: (taskId: number, updates: Partial<Task>) => void
   setTasks: (tasks: Task[] | ((prev: Task[]) => Task[])) => void
+  incrementTaskPomodoros: (taskId: number) => Promise<void>
+  getTaskStats: () => Promise<{
+    totalTasks: number
+    completedTasks: number
+    totalPomodoros: number
+    avgPomodorosPerTask: number
+  }>
 
   // Settings actions
   setSettings: (settings: Settings | ((prev: Settings) => Settings)) => void
@@ -79,7 +96,7 @@ export const PomodoroContext = createContext<PomodoroContextType | undefined>(un
  * Custom hook to access the Pomodoro context
  * Throws an error if used outside of PomodoroProvider
  */
-export const usePomodoro = () => {
+export function usePomodoro() {
   const context = useContext(PomodoroContext)
   if (context === undefined) {
     throw new Error("usePomodoro must be used within a PomodoroProvider")

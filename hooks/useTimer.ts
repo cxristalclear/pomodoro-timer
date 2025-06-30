@@ -135,6 +135,18 @@ export function useTimer({
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
   }, [isRunning, onComplete])
 
+  // Increment timer by n seconds
+  const incrementTime = useCallback((seconds: number) => {
+    setTime((prev) => Math.max(0, prev + seconds))
+    sessionDurationRef.current = Math.max(0, sessionDurationRef.current + seconds)
+  }, [])
+
+  // Decrement timer by n seconds
+  const decrementTime = useCallback((seconds: number) => {
+    setTime((prev) => Math.max(0, prev - seconds))
+    sessionDurationRef.current = Math.max(0, sessionDurationRef.current - seconds)
+  }, [])
+
   return {
     time,
     isRunning,
@@ -142,5 +154,7 @@ export function useTimer({
     resetTimer,
     setTime,
     setIsRunning,
+    incrementTime,
+    decrementTime,
   }
 }

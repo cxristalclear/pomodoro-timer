@@ -28,6 +28,8 @@ export interface Database {
           name: string
           completed: boolean
           position: number
+          estimated_pomodoros: number
+          actual_pomodoros: number
           created_at: string
           completed_at: string | null
         }
@@ -37,6 +39,8 @@ export interface Database {
           name: string
           completed?: boolean
           position: number
+          estimated_pomodoros?: number
+          actual_pomodoros?: number
           created_at?: string
           completed_at?: string | null
         }
@@ -46,6 +50,8 @@ export interface Database {
           name?: string
           completed?: boolean
           position?: number
+          estimated_pomodoros?: number
+          actual_pomodoros?: number
           created_at?: string
           completed_at?: string | null
         }
@@ -54,6 +60,7 @@ export interface Database {
         Row: {
           id: number
           user_id: string
+          task_id: number | null
           task: string
           duration: number
           date: string
@@ -62,6 +69,7 @@ export interface Database {
         Insert: {
           id?: number
           user_id: string
+          task_id?: number | null
           task: string
           duration: number
           date: string
@@ -70,6 +78,7 @@ export interface Database {
         Update: {
           id?: number
           user_id?: string
+          task_id?: number | null
           task?: string
           duration?: number
           date?: string
@@ -119,6 +128,25 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+      }
+    }
+    Functions: {
+      increment_pomodoros: {
+        Args: {
+          task_id_param: number
+        }
+        Returns: undefined
+      }
+      get_average_pomodoros_per_task: {
+        Args: {
+          user_id_param: string
+        }
+        Returns: {
+          total_tasks: number
+          completed_tasks: number
+          total_pomodoros: number
+          avg_pomodoros_per_task: number
+        }[]
       }
     }
   }
