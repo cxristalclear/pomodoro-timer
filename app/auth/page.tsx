@@ -71,10 +71,10 @@ export default function AuthPage() {
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-gray-800">
-              <TabsTrigger value="signin" className="text-gray-300 data-[state=active]:text-white">
+              <TabsTrigger value="signin" className="text-gray-300 data-[state=active]:text-gray-300">
                 Sign In
               </TabsTrigger>
-              <TabsTrigger value="signup" className="text-gray-300 data-[state=active]:text-white">
+              <TabsTrigger value="signup" className="text-gray-300 data-[state=active]:text-gray-300">
                 Sign Up
               </TabsTrigger>
             </TabsList>
