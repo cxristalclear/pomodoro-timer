@@ -1,4 +1,3 @@
-
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useTimer } from "./useTimer";
@@ -8,6 +7,7 @@ import { useSettings } from "./useSettings";
 import { useAudio } from "./useAudio";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 import { useEffect, useState } from "react";
+
 export function usePomodoroLogic() {
   const { user } = useAuth();
   const userId = user?.id;
@@ -35,7 +35,7 @@ export function usePomodoroLogic() {
 
   // Tasks
   const tasksHook = useTasks(userId);
-  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, currentTask, selectedTaskId } = tasksHook;
+  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, currentTask, selectedTaskId, loadTasks } = tasksHook;
 
   // Sessions
   const sessionsHook = useSessions(userId);
@@ -48,6 +48,16 @@ export function usePomodoroLogic() {
 
   // Data loading state
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Load tasks when userId changes
+  useEffect(() => {
+    if (userId) {
+      setDataLoading(true);
+      loadTasks().finally(() => setDataLoading(false));
+    } else {
+      setTasks([]);
+    }
+  }, [userId, loadTasks, setTasks]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
