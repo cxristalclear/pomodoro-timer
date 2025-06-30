@@ -186,16 +186,18 @@ export const usePomodoroLogic = () => {
       setIsRunning(false)
       if (endTimeRef.current) {
         const now = Date.now()
-        const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000))
+        const remaining = Math.max(0, Math.round((endTimeRef.current - now) / 1000))
         remainingTimeRef.current = remaining
+        setTime(remaining) // Ensure UI is in sync
       }
       startTimeRef.current = null
       endTimeRef.current = null
     } else {
       // Starting: use remaining time if available
-      setIsRunning(true)
       const now = Date.now()
       const duration = remainingTimeRef.current !== null ? remainingTimeRef.current : time
+      setIsRunning(true)
+      setTime(duration) // Ensure UI is in sync
       startTimeRef.current = now
       endTimeRef.current = now + duration * 1000
       remainingTimeRef.current = null
@@ -328,8 +330,8 @@ export const usePomodoroLogic = () => {
 
           setTasks((prev) =>
             prev.map((task) =>
-              task.id === selectedTaskId ? { ...task, completed: true, completedAt: new Date().toISOString() } : task,
-            ),
+              task.id === selectedTaskId ? { ...task, completed: true, completedAt: new Date().toISOString() } : task
+            )
           )
           setSelectedTaskId(null)
           setCurrentTask("")
@@ -364,17 +366,18 @@ export const usePomodoroLogic = () => {
     if (isRunning && endTimeRef.current) {
       intervalRef.current = setInterval(() => {
         const now = Date.now()
-        const remainingMs = endTimeRef.current! - now
-        const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
-
-        setTime(remainingSeconds)
-
-        if (remainingSeconds <= 0) {
-          setIsRunning(false)
-          startTimeRef.current = null
-          endTimeRef.current = null
-          remainingTimeRef.current = null
-          handleTimerComplete()
+        if (endTimeRef.current !== null) {
+          const remainingMs = endTimeRef.current - now
+          const remainingSeconds = Math.max(0, Math.round(remainingMs / 1000))
+          setTime(remainingSeconds)
+          if (remainingSeconds <= 0) {
+            setIsRunning(false)
+            startTimeRef.current = null
+            endTimeRef.current = null
+            remainingTimeRef.current = null
+            setTime(0)
+            handleTimerComplete()
+          }
         }
       }, 1000)
     } else {
@@ -382,7 +385,6 @@ export const usePomodoroLogic = () => {
         clearInterval(intervalRef.current)
       }
     }
-
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -395,23 +397,21 @@ export const usePomodoroLogic = () => {
    */
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && isRunning && endTimeRef.current) {
+      if (isRunning && endTimeRef.current) {
         const now = Date.now()
         const remainingMs = endTimeRef.current - now
-        const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
-
+        const remainingSeconds = Math.max(0, Math.round(remainingMs / 1000))
         setTime(remainingSeconds)
-
         if (remainingSeconds <= 0) {
           setIsRunning(false)
           startTimeRef.current = null
           endTimeRef.current = null
           remainingTimeRef.current = null
+          setTime(0)
           handleTimerComplete()
         }
       }
     }
-
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
   }, [isRunning, handleTimerComplete])
@@ -604,6 +604,15 @@ export const usePomodoroLogic = () => {
     },
     [user, supabase, settings],
   )
+
+  // When session type or settings change, always reset all timer refs
+  useEffect(() => {
+    setIsRunning(false)
+    startTimeRef.current = null
+    endTimeRef.current = null
+    remainingTimeRef.current = null
+    resetTimerToCurrentSession()
+  }, [sessionType, settings.workDuration, settings.breakDuration, settings.longBreakDuration, resetTimerToCurrentSession])
 
   return {
     // State
