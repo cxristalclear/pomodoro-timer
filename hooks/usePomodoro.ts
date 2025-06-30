@@ -55,6 +55,9 @@ export const usePomodoroLogic = () => {
   // Router for navigation
   const router = useRouter()
 
+  // Store remaining time when paused
+  const remainingTimeRef = useRef<number | null>(null)
+
   /**
    * Load user data from Supabase when user logs in
    */
@@ -179,21 +182,29 @@ export const usePomodoroLogic = () => {
   // Timer actions
   const toggleTimer = useCallback(() => {
     if (isRunning) {
-      // Pausing
+      // Pausing: store remaining time
       setIsRunning(false)
+      if (endTimeRef.current) {
+        const now = Date.now()
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000))
+        remainingTimeRef.current = remaining
+      }
       startTimeRef.current = null
       endTimeRef.current = null
     } else {
-      // Starting
+      // Starting: use remaining time if available
       setIsRunning(true)
       const now = Date.now()
+      const duration = remainingTimeRef.current !== null ? remainingTimeRef.current : time
       startTimeRef.current = now
-      endTimeRef.current = now + time * 1000
+      endTimeRef.current = now + duration * 1000
+      remainingTimeRef.current = null
     }
   }, [isRunning, time])
 
   const resetTimer = useCallback(() => {
     resetTimerToCurrentSession()
+    remainingTimeRef.current = null
   }, [resetTimerToCurrentSession])
 
   /**
@@ -362,9 +373,10 @@ export const usePomodoroLogic = () => {
           setIsRunning(false)
           startTimeRef.current = null
           endTimeRef.current = null
+          remainingTimeRef.current = null
           handleTimerComplete()
         }
-      }, 100)
+      }, 1000)
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -394,6 +406,7 @@ export const usePomodoroLogic = () => {
           setIsRunning(false)
           startTimeRef.current = null
           endTimeRef.current = null
+          remainingTimeRef.current = null
           handleTimerComplete()
         }
       }
