@@ -57,6 +57,8 @@ export const usePomodoroLogic = () => {
 
   // Store remaining time when paused
   const remainingTimeRef = useRef<number | null>(null)
+  // Store the original session duration for the current session
+  const sessionDurationRef = useRef<number>(settings.workDuration * 60)
 
   /**
    * Load user data from Supabase when user logs in
@@ -159,14 +161,36 @@ export const usePomodoroLogic = () => {
     }
   }, [user, loadUserData])
 
-  /**
-   * Reset timer to current session duration when session type or settings change
-   */
-  const resetTimerToCurrentSession = useCallback(() => {
+  // Timer actions
+  const toggleTimer = useCallback(() => {
+    if (isRunning) {
+      // Pausing: store elapsed time
+      setIsRunning(false)
+      if (startTimeRef.current !== null) {
+        const now = Date.now()
+        const elapsed = Math.floor((now - startTimeRef.current) / 1000)
+        remainingTimeRef.current = sessionDurationRef.current - elapsed
+        setTime(sessionDurationRef.current - elapsed)
+      }
+      startTimeRef.current = null
+      endTimeRef.current = null
+    } else {
+      // Starting: use remaining time if available
+      const now = Date.now()
+      let duration = remainingTimeRef.current !== null ? remainingTimeRef.current : sessionDurationRef.current
+      setIsRunning(true)
+      setTime(duration)
+      startTimeRef.current = now
+      endTimeRef.current = now + duration * 1000
+      remainingTimeRef.current = null
+    }
+  }, [isRunning])
+
+  const resetTimer = useCallback(() => {
     setIsRunning(false)
     startTimeRef.current = null
     endTimeRef.current = null
-
+    remainingTimeRef.current = null
     let duration: number
     if (sessionType === "work") {
       duration = settings.workDuration * 60
@@ -175,39 +199,9 @@ export const usePomodoroLogic = () => {
     } else {
       duration = settings.longBreakDuration * 60
     }
-
+    sessionDurationRef.current = duration
     setTime(duration)
   }, [sessionType, settings])
-
-  // Timer actions
-  const toggleTimer = useCallback(() => {
-    if (isRunning) {
-      // Pausing: store remaining time
-      setIsRunning(false)
-      if (endTimeRef.current) {
-        const now = Date.now()
-        const remaining = Math.max(0, Math.round((endTimeRef.current - now) / 1000))
-        remainingTimeRef.current = remaining
-        setTime(remaining) // Ensure UI is in sync
-      }
-      startTimeRef.current = null
-      endTimeRef.current = null
-    } else {
-      // Starting: use remaining time if available
-      const now = Date.now()
-      const duration = remainingTimeRef.current !== null ? remainingTimeRef.current : time
-      setIsRunning(true)
-      setTime(duration) // Ensure UI is in sync
-      startTimeRef.current = now
-      endTimeRef.current = now + duration * 1000
-      remainingTimeRef.current = null
-    }
-  }, [isRunning, time])
-
-  const resetTimer = useCallback(() => {
-    resetTimerToCurrentSession()
-    remainingTimeRef.current = null
-  }, [resetTimerToCurrentSession])
 
   /**
    * Initialize audio context and request notification permissions
@@ -235,14 +229,24 @@ export const usePomodoroLogic = () => {
    * Update timer when session type or settings change
    */
   useEffect(() => {
-    resetTimerToCurrentSession()
-  }, [
-    sessionType,
-    settings.workDuration,
-    settings.breakDuration,
-    settings.longBreakDuration,
-    resetTimerToCurrentSession,
-  ])
+    const newDuration =
+      sessionType === "work"
+        ? settings.workDuration * 60
+        : sessionType === "shortBreak"
+        ? settings.breakDuration * 60
+        : settings.longBreakDuration * 60
+
+    // Only reset if the duration actually changed or session type changed
+    if (sessionDurationRef.current !== newDuration || !time) {
+      sessionDurationRef.current = newDuration
+      if (!isRunning) {
+        setTime(newDuration)
+        startTimeRef.current = null
+        endTimeRef.current = null
+        remainingTimeRef.current = null
+      }
+    }
+  }, [sessionType, settings.workDuration, settings.breakDuration, settings.longBreakDuration])
 
   /**
    * Play notification sound when timer completes
@@ -363,23 +367,26 @@ export const usePomodoroLogic = () => {
    * Main timer countdown effect - uses end time calculation to handle tab switching
    */
   useEffect(() => {
-    if (isRunning && endTimeRef.current) {
+    if (isRunning && startTimeRef.current !== null) {
       intervalRef.current = setInterval(() => {
         const now = Date.now()
+        let duration = 0
         if (endTimeRef.current !== null) {
-          const remainingMs = endTimeRef.current - now
-          const remainingSeconds = Math.max(0, Math.round(remainingMs / 1000))
-          setTime(remainingSeconds)
-          if (remainingSeconds <= 0) {
-            setIsRunning(false)
-            startTimeRef.current = null
-            endTimeRef.current = null
-            remainingTimeRef.current = null
-            setTime(0)
-            handleTimerComplete()
-          }
+          duration = Math.round((endTimeRef.current - now) / 1000)
+        } else if (startTimeRef.current !== null) {
+          duration = Math.round(sessionDurationRef.current - (now - startTimeRef.current) / 1000)
         }
-      }, 1000)
+        const timeLeft = Math.max(0, duration)
+        setTime(timeLeft)
+        if (timeLeft <= 0) {
+          setIsRunning(false)
+          startTimeRef.current = null
+          endTimeRef.current = null
+          remainingTimeRef.current = null
+          setTime(0)
+          handleTimerComplete()
+        }
+      }, 100)
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -397,12 +404,17 @@ export const usePomodoroLogic = () => {
    */
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (isRunning && endTimeRef.current) {
+      if (isRunning && startTimeRef.current !== null) {
         const now = Date.now()
-        const remainingMs = endTimeRef.current - now
-        const remainingSeconds = Math.max(0, Math.round(remainingMs / 1000))
-        setTime(remainingSeconds)
-        if (remainingSeconds <= 0) {
+        let duration = 0
+        if (endTimeRef.current !== null) {
+          duration = Math.round((endTimeRef.current - now) / 1000)
+        } else if (startTimeRef.current !== null) {
+          duration = Math.round(sessionDurationRef.current - (now - startTimeRef.current) / 1000)
+        }
+        const timeLeft = Math.max(0, duration)
+        setTime(timeLeft)
+        if (timeLeft <= 0) {
           setIsRunning(false)
           startTimeRef.current = null
           endTimeRef.current = null
@@ -433,7 +445,7 @@ export const usePomodoroLogic = () => {
         switch (e.key.toLowerCase()) {
           case "r":
             e.preventDefault()
-            resetTimerToCurrentSession()
+            resetTimer()
             break
           case "t":
             e.preventDefault()
@@ -457,7 +469,7 @@ export const usePomodoroLogic = () => {
 
     window.addEventListener("keydown", handleKeyPress)
     return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [toggleTimer, resetTimerToCurrentSession, router])
+  }, [toggleTimer, resetTimer, router])
 
   // Task management actions with Supabase sync
   const addTask = useCallback(async () => {
@@ -547,12 +559,25 @@ export const usePomodoroLogic = () => {
     [user, supabase],
   )
 
+  // Update updateSettings to only reset timer for duration changes
   const updateSettings = useCallback(
     async (newSettings: Settings | ((prev: Settings) => Settings)) => {
+      const previousSettings = settings
       const settingsToUpdate = typeof newSettings === "function" ? newSettings(settings) : newSettings
+
+      // Check if timer-related settings changed
+      const timerSettingsChanged =
+        previousSettings.workDuration !== settingsToUpdate.workDuration ||
+        previousSettings.breakDuration !== settingsToUpdate.breakDuration ||
+        previousSettings.longBreakDuration !== settingsToUpdate.longBreakDuration
 
       // Update local state immediately
       setSettings(settingsToUpdate)
+
+      // Only reset timer if duration settings changed and timer is not running
+      if (timerSettingsChanged && !isRunning) {
+        resetTimer()
+      }
 
       // Save to Supabase
       if (user) {
@@ -602,17 +627,8 @@ export const usePomodoroLogic = () => {
 
       return settingsToUpdate
     },
-    [user, supabase, settings],
+    [user, supabase, settings, isRunning, resetTimer],
   )
-
-  // When session type or settings change, always reset all timer refs
-  useEffect(() => {
-    setIsRunning(false)
-    startTimeRef.current = null
-    endTimeRef.current = null
-    remainingTimeRef.current = null
-    resetTimerToCurrentSession()
-  }, [sessionType, settings.workDuration, settings.breakDuration, settings.longBreakDuration, resetTimerToCurrentSession])
 
   return {
     // State
