@@ -15,11 +15,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   useEffect(() => {
     if (!loading && !user) {
+      console.log("User not authenticated, redirecting to auth");
       router.push("/auth")
     }
   }, [user, loading, router])
 
+  // Show loading while auth is being determined
   if (loading) {
+    console.log("Auth loading...");
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-xl">Loading...</div>
@@ -27,9 +30,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     )
   }
 
+  // Don't render anything if user is not authenticated (will redirect)
   if (!user) {
+    console.log("No user found, not rendering protected content");
     return null
   }
 
+  console.log("User authenticated, rendering protected content");
   return <>{children}</>
 }

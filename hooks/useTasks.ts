@@ -10,33 +10,49 @@ export function useTasks(userId: string | undefined) {
   // Load tasks from DB
   const loadTasks = useCallback(async () => {
     if (!userId) return
-    const { data, error } = await pomodoroService.tasks.list(userId)
-    if (data && !error) {
-      setTasks(
-        data.map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          completed: t.completed,
-          createdAt: t.created_at,
-          completedAt: t.completed_at,
-        }))
-      )
+    try {
+      const { data, error } = await pomodoroService.tasks.list(userId)
+      if (error) {
+        console.error("Error loading tasks:", error)
+        return
+      }
+      if (data) {
+        setTasks(
+          data.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            completed: t.completed,
+            createdAt: t.created_at,
+            completedAt: t.completed_at,
+          }))
+        )
+      }
+    } catch (error) {
+      console.error("Error loading tasks:", error)
     }
   }, [userId])
 
   // Add a new task
   const addTask = useCallback(async () => {
     if (newTaskInput.trim() && userId) {
-      const { data, error } = await pomodoroService.tasks.create(userId, newTaskInput.trim(), tasks.length)
-      if (data && !error) {
-        const newTask: Task = {
-          id: data.id,
-          name: data.name,
-          completed: false,
-          createdAt: data.created_at,
+      try {
+        const { data, error } = await pomodoroService.tasks.create(userId, newTaskInput.trim(), tasks.length)
+        if (error) {
+          console.error("Error adding task:", error)
+          return
         }
-        setTasks((prev) => [...prev, newTask])
-        setNewTaskInput("")
+        if (data) {
+          const newTask: Task = {
+            id: data.id,
+            name: data.name,
+            completed: false,
+            createdAt: data.created_at,
+          }
+          setTasks((prev) => [...prev, newTask])
+          setNewTaskInput("")
+        }
+      } catch (error) {
+        console.error("Error adding task:", error)
       }
     }
   }, [newTaskInput, userId, tasks.length])
@@ -44,8 +60,16 @@ export function useTasks(userId: string | undefined) {
   // Delete a task
   const deleteTask = useCallback(async (taskId: number) => {
     if (userId) {
-      await pomodoroService.tasks.delete(userId, taskId)
-      setTasks((prev) => prev.filter((task) => task.id !== taskId))
+      try {
+        const { error } = await pomodoroService.tasks.delete(userId, taskId)
+        if (error) {
+          console.error("Error deleting task:", error)
+          return
+        }
+        setTasks((prev) => prev.filter((task) => task.id !== taskId))
+      } catch (error) {
+        console.error("Error deleting task:", error)
+      }
     }
   }, [userId])
 
@@ -53,9 +77,16 @@ export function useTasks(userId: string | undefined) {
   const updateTaskOrder = useCallback(async (newTasks: Task[]) => {
     setTasks(newTasks)
     if (userId) {
-      for (const [index, task] of newTasks.entries()) {
-        // Use 'any' to allow position property for update
-        await pomodoroService.tasks.update(userId, task.id, { position: index } as any)
+      try {
+        for (const [index, task] of newTasks.entries()) {
+          // Use 'any' to allow position property for update
+          const { error } = await pomodoroService.tasks.update(userId, task.id, { position: index } as any)
+          if (error) {
+            console.error("Error updating task order:", error)
+          }
+        }
+      } catch (error) {
+        console.error("Error updating task order:", error)
       }
     }
   }, [userId])
@@ -69,7 +100,7 @@ export function useTasks(userId: string | undefined) {
   }, [])
 
   // setTasks for context: allow both array and updater function, but always call updateTaskOrder
-  const setTasksForContext = (tasksOrUpdater: Task[] | ((prev: Task[]) => Task[])) => {
+  const setTasksForContext = useCallback((tasksOrUpdater: Task[] | ((prev: Task[]) => Task[])) => {
     if (typeof tasksOrUpdater === "function") {
       // updater function
       setTasks((prev) => {
@@ -81,7 +112,8 @@ export function useTasks(userId: string | undefined) {
       setTasks(tasksOrUpdater)
       updateTaskOrder(tasksOrUpdater)
     }
-  }
+  }, [updateTaskOrder])
+
   return {
     tasks,
     setTasks: setTasksForContext,

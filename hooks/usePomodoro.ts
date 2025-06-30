@@ -6,10 +6,10 @@ import { useSessions } from "./useSessions";
 import { useSettings } from "./useSettings";
 import { useAudio } from "./useAudio";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export function usePomodoroLogic() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
   const router = useRouter();
 
@@ -49,15 +49,31 @@ export function usePomodoroLogic() {
   // Data loading state
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Load tasks when userId changes
-  useEffect(() => {
-    if (userId) {
-      setDataLoading(true);
-      loadTasks().finally(() => setDataLoading(false));
-    } else {
-      setTasks([]);
+  // Memoize the loadTasks function to prevent infinite re-renders
+  const loadTasksWithLoading = useCallback(async () => {
+    if (!userId) return;
+    console.log("Loading tasks for user:", userId);
+    setDataLoading(true);
+    try {
+      await loadTasks();
+      console.log("Tasks loaded successfully");
+    } catch (error) {
+      console.error("Error loading tasks:", error);
+    } finally {
+      setDataLoading(false);
     }
-  }, [userId, loadTasks, setTasks]);
+  }, [userId, loadTasks]);
+
+  // Load tasks when userId changes and auth is not loading
+  useEffect(() => {
+    if (!authLoading) {
+      if (userId) {
+        loadTasksWithLoading();
+      } else {
+        setTasks([]);
+      }
+    }
+  }, [userId, authLoading, loadTasksWithLoading, setTasks]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
