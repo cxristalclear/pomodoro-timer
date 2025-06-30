@@ -6,7 +6,7 @@ import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Task } from "@/contexts/PomodoroContext"
 
 /**
@@ -14,7 +14,7 @@ import type { Task } from "@/contexts/PomodoroContext"
  * Allows users to add, complete, delete, and reorder tasks
  */
 function TasksPageContent() {
-  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, setTasks, dataLoading, selectedTaskId, currentTask, toggleTaskCompletion, updateTask } = usePomodoro()
+  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, selectTaskAndNavigate, setTasks, dataLoading, selectedTaskId, currentTask, toggleTaskCompletion, updateTask } = usePomodoro()
 
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -23,6 +23,10 @@ function TasksPageContent() {
   // Editing state
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null)
   const [editingText, setEditingText] = useState("")
+
+  // Click delay state for double-click handling
+  const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [lastClickedTask, setLastClickedTask] = useState<number | null>(null)
 
   /**
    * Handle Enter key press to add task
@@ -72,6 +76,35 @@ function TasksPageContent() {
   }
 
   /**
+   * Handle task click with delay for double-click detection
+   */
+  const handleTaskClick = (task: Task) => {
+    // Clear any existing timeout
+    if (clickTimeout) {
+      clearTimeout(clickTimeout)
+      setClickTimeout(null)
+    }
+
+    // If this is the same task that was clicked before, it might be a double-click
+    if (lastClickedTask === task.id) {
+      setLastClickedTask(null)
+      startEditing(task)
+      return
+    }
+
+    // Set the last clicked task
+    setLastClickedTask(task.id)
+
+    // Set a timeout for the single click action
+    const timeout = setTimeout(() => {
+      selectTaskAndNavigate(task)
+      setLastClickedTask(null)
+    }, 300) // 300ms delay to allow for double-click
+
+    setClickTimeout(timeout)
+  }
+
+  /**
    * Drag and drop handlers for task reordering
    */
   const handleDragStart = (e: React.DragEvent, task: Task) => {
@@ -117,6 +150,14 @@ function TasksPageContent() {
     setDraggedTask(null)
     setDragOverIndex(null)
   }
+
+  useEffect(() => {
+    return () => {
+      if (clickTimeout) {
+        clearTimeout(clickTimeout)
+      }
+    }
+  }, [clickTimeout])
 
   if (dataLoading) {
     return (
@@ -233,8 +274,10 @@ function TasksPageContent() {
                 ) : (
                   // View mode
                   <button
-                    onClick={() => selectTask(task)}
-                    onDoubleClick={() => startEditing(task)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleTaskClick(task)
+                    }}
                     className="flex-1 text-left flex items-center gap-3"
                     aria-label={`Select task: ${task.name}`}
                   >
@@ -322,7 +365,10 @@ function TasksPageContent() {
                       // View mode
                       <span 
                         className="text-gray-500 line-through flex-1 cursor-pointer"
-                        onDoubleClick={() => startEditing(task)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTaskClick(task)
+                        }}
                       >
                         {task.name}
                       </span>
@@ -352,13 +398,13 @@ function TasksPageContent() {
         {tasks.filter((t) => !t.completed).length > 1 && (
           <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
             <p>Drag and drop tasks to reorder them</p>
-            <p>Double-click task name or click edit icon to edit</p>
+            <p>Click task to select and go to timer, double-click to edit</p>
             <p>Click circle to complete, checkmark to uncomplete</p>
           </div>
         )}
         {tasks.filter((t) => !t.completed).length <= 1 && tasks.length > 0 && (
           <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
-            <p>Double-click task name or click edit icon to edit</p>
+            <p>Click task to select and go to timer, double-click to edit</p>
             <p>Click circle to complete, checkmark to uncomplete</p>
           </div>
         )}

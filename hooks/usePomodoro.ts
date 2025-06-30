@@ -7,6 +7,7 @@ import { useSettings } from "./useSettings";
 import { useAudio } from "./useAudio";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 import { useEffect, useState, useCallback } from "react";
+import type { Task } from "@/contexts/PomodoroContext";
 
 export function usePomodoroLogic() {
   const { user, loading: authLoading } = useAuth();
@@ -48,6 +49,40 @@ export function usePomodoroLogic() {
 
   // Data loading state
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Next task function - completes current task and moves to next session
+  const nextTask = useCallback(async () => {
+    if (!selectedTaskId || !userId) return;
+
+    // Find the current task
+    const currentTask = tasks.find(task => task.id === selectedTaskId);
+    if (!currentTask || currentTask.completed) return;
+
+    // Complete the current task
+    await toggleTaskCompletion(selectedTaskId);
+
+    // If we're in a work session and timer is running, move to break
+    if (sessionType === "work" && isRunning) {
+      // Increment session count
+      setSessionCount(prev => prev + 1);
+      
+      // Determine next session type
+      const nextSessionType = sessionCount % settings.sessionsUntilLongBreak === 0 ? "longBreak" : "shortBreak";
+      setSessionType(nextSessionType);
+      
+      // Reset timer with new duration
+      const newDuration = nextSessionType === "longBreak" 
+        ? settings.longBreakDuration * 60 
+        : settings.breakDuration * 60;
+      
+      resetTimer(newDuration);
+      
+      // Auto-start break if enabled
+      if (settings.autoStartBreaks) {
+        toggleTimer();
+      }
+    }
+  }, [selectedTaskId, userId, tasks, toggleTaskCompletion, sessionType, isRunning, sessionCount, settings, resetTimer, toggleTimer]);
 
   // Memoize the loadTasks function to prevent infinite re-renders
   const loadTasksWithLoading = useCallback(async () => {
@@ -108,10 +143,20 @@ export function usePomodoroLogic() {
     }
   }, [tasks, selectedTaskId, dataLoading, selectTask]);
 
+  // Select task and navigate to timer
+  const selectTaskAndNavigate = useCallback(async (task: Task) => {
+    // First select the task (this will trigger the reordering)
+    await selectTask(task);
+    
+    // Then navigate
+    router.push("/");
+  }, [selectTask, router]);
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     toggleTimer,
     resetTimer,
+    nextTask,
     goTasks: () => router.push("/tasks"),
     goAnalytics: () => router.push("/analytics"),
     goSettings: () => router.push("/settings"),
@@ -137,9 +182,11 @@ export function usePomodoroLogic() {
     addTask,
     deleteTask,
     selectTask,
+    selectTaskAndNavigate,
     toggleTaskCompletion,
     updateTask,
     setTasks,
+    nextTask,
 
     // Sessions
     sessions,

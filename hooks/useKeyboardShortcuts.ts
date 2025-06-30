@@ -13,6 +13,11 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
         actions.toggleTimer()
       }
 
+      if (e.code === "ArrowRight" && actions.nextTask) {
+        e.preventDefault()
+        actions.nextTask()
+      }
+
       if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
           case "r":
@@ -55,6 +60,7 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
   // Return info about shortcuts for UI display
   const shortcuts = [
     { keys: 'Space', description: 'Start/Pause Timer' },
+    { keys: '→', description: 'Complete Task & Next Session' },
     { keys: 'Ctrl+R', description: 'Reset Timer' },
     { keys: 'Ctrl+T', description: 'Go to Tasks' },
     { keys: 'Ctrl+A', description: 'Go to Analytics' },

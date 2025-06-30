@@ -11,10 +11,13 @@ import Link from "next/link"
  * Main timer display component showing the countdown, controls, and session info
  */
 export const TimerDisplay: React.FC = () => {
-  const { time, isRunning, sessionType, sessionCount, currentTask, completedTasks, settings, toggleTimer, resetTimer, tasks } =
+  const { time, isRunning, sessionType, sessionCount, currentTask, completedTasks, settings, toggleTimer, resetTimer, tasks, selectedTaskId } =
     usePomodoro()
 
   const router = useRouter()
+
+  // Debug logging
+  console.log("TimerDisplay - currentTask:", currentTask, "selectedTaskId:", selectedTaskId, "tasks:", tasks.length)
 
   /**
    * Get display text for current session
@@ -32,8 +35,15 @@ export const TimerDisplay: React.FC = () => {
     if (sessionType === "shortBreak") return "[short break]"
     if (sessionType === "longBreak") return "[long break]"
     
-    if (currentTask) {
-      return currentTask
+    // Use currentTask if available, otherwise try to find the selected task
+    let taskName = currentTask
+    if (!taskName && selectedTaskId) {
+      const selectedTask = tasks.find(task => task.id === selectedTaskId)
+      taskName = selectedTask?.name || ""
+    }
+    
+    if (taskName) {
+      return taskName
     }
     
     if (tasks.length === 0) {
@@ -105,6 +115,8 @@ export const TimerDisplay: React.FC = () => {
             ↺
           </button>
         </div>
+
+        
       </main>
     </div>
   )

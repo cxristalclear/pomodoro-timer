@@ -150,10 +150,26 @@ export function useTasks(userId: string | undefined) {
   // Select a task (UI logic, not DB)
   const [currentTask, setCurrentTask] = useState("")
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
-  const selectTask = useCallback((task: Task) => {
+  const selectTask = useCallback(async (task: Task) => {
     setCurrentTask(task.name)
     setSelectedTaskId(task.id)
-  }, [])
+    
+    // Move the selected task to the top of the list
+    const activeTasks = tasks.filter(t => !t.completed)
+    const completedTasks = tasks.filter(t => t.completed)
+    
+    // Remove the selected task from active tasks
+    const otherActiveTasks = activeTasks.filter(t => t.id !== task.id)
+    
+    // Put the selected task first, then other active tasks, then completed tasks
+    const newTasks = [task, ...otherActiveTasks, ...completedTasks]
+    
+    // Update the state immediately
+    setTasks(newTasks)
+    
+    // Wait for the database update to complete
+    await updateTaskOrder(newTasks)
+  }, [updateTaskOrder, tasks])
 
   // setTasks for context: allow both array and updater function, but always call updateTaskOrder
   const setTasksForContext = useCallback((tasksOrUpdater: Task[] | ((prev: Task[]) => Task[])) => {

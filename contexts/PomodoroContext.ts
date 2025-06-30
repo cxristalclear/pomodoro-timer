@@ -59,8 +59,10 @@ export interface PomodoroContextType {
   setNewTaskInput: (input: string) => void
   addTask: () => void
   deleteTask: (taskId: number) => void
-  selectTask: (task: Task) => void
+  selectTask: (task: Task) => Promise<void>
+  selectTaskAndNavigate: (task: Task) => Promise<void>
   toggleTaskCompletion: (taskId: number) => void
+  nextTask: () => void
   updateTask: (taskId: number, updates: Partial<Task>) => void
   setTasks: (tasks: Task[] | ((prev: Task[]) => Task[])) => void
 
