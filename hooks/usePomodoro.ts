@@ -50,7 +50,7 @@ export const usePomodoroLogic = () => {
   const notificationPermissionRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const startTimeRef = useRef<number | null>(null)
-  const totalDurationRef = useRef<number>(0)
+  const endTimeRef = useRef<number | null>(null)
 
   // Router for navigation
   const router = useRouter()
@@ -162,6 +162,7 @@ export const usePomodoroLogic = () => {
   const resetTimerToCurrentSession = useCallback(() => {
     setIsRunning(false)
     startTimeRef.current = null
+    endTimeRef.current = null
 
     let duration: number
     if (sessionType === "work") {
@@ -173,20 +174,22 @@ export const usePomodoroLogic = () => {
     }
 
     setTime(duration)
-    totalDurationRef.current = duration
   }, [sessionType, settings])
 
   // Timer actions
   const toggleTimer = useCallback(() => {
     if (isRunning) {
-      // Pausing - clear the start time
+      // Pausing
+      setIsRunning(false)
       startTimeRef.current = null
+      endTimeRef.current = null
     } else {
-      // Starting - set the start time accounting for already elapsed time
-      const elapsedTime = totalDurationRef.current - time
-      startTimeRef.current = Date.now() - elapsedTime * 1000
+      // Starting
+      setIsRunning(true)
+      const now = Date.now()
+      startTimeRef.current = now
+      endTimeRef.current = now + time * 1000
     }
-    setIsRunning((prev) => !prev)
   }, [isRunning, time])
 
   const resetTimer = useCallback(() => {
@@ -344,23 +347,24 @@ export const usePomodoroLogic = () => {
   }, [sessionType, currentTask, settings, sessionCount, selectedTaskId, playSound, user, supabase])
 
   /**
-   * Main timer countdown effect - uses timestamp-based calculation to handle tab switching
+   * Main timer countdown effect - uses end time calculation to handle tab switching
    */
   useEffect(() => {
-    if (isRunning && startTimeRef.current) {
+    if (isRunning && endTimeRef.current) {
       intervalRef.current = setInterval(() => {
         const now = Date.now()
-        const elapsedSeconds = Math.floor((now - startTimeRef.current!) / 1000)
-        const remainingTime = Math.max(0, totalDurationRef.current - elapsedSeconds)
+        const remainingMs = endTimeRef.current! - now
+        const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
 
-        setTime(remainingTime)
+        setTime(remainingSeconds)
 
-        if (remainingTime <= 0) {
+        if (remainingSeconds <= 0) {
           setIsRunning(false)
           startTimeRef.current = null
+          endTimeRef.current = null
           handleTimerComplete()
         }
-      }, 100) // Update more frequently for smoother display
+      }, 100)
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -375,21 +379,21 @@ export const usePomodoroLogic = () => {
   }, [isRunning, handleTimerComplete])
 
   /**
-   * Handle visibility change to keep timer running in background
+   * Handle visibility change to recalculate timer when tab becomes visible
    */
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && isRunning && startTimeRef.current) {
-        // Recalculate time when tab becomes visible again
+      if (document.visibilityState === "visible" && isRunning && endTimeRef.current) {
         const now = Date.now()
-        const elapsedSeconds = Math.floor((now - startTimeRef.current) / 1000)
-        const remainingTime = Math.max(0, totalDurationRef.current - elapsedSeconds)
+        const remainingMs = endTimeRef.current - now
+        const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
 
-        setTime(remainingTime)
+        setTime(remainingSeconds)
 
-        if (remainingTime <= 0) {
+        if (remainingSeconds <= 0) {
           setIsRunning(false)
           startTimeRef.current = null
+          endTimeRef.current = null
           handleTimerComplete()
         }
       }
