@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import React from "react"
 
 export default function AuthPage() {
   const [email, setEmail] = useState("")
@@ -71,10 +72,10 @@ export default function AuthPage() {
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-gray-800">
-              <TabsTrigger value="signin" className="text-gray-300 data-[state=active]:text-gray-300">
+              <TabsTrigger value="signin" className="text-gray-300 data-[state=active]:text-gray-800">
                 Sign In
               </TabsTrigger>
-              <TabsTrigger value="signup" className="text-gray-300 data-[state=active]:text-gray-300">
+              <TabsTrigger value="signup" className="text-gray-300 data-[state=active]:text-gray-800">
                 Sign Up
               </TabsTrigger>
             </TabsList>
