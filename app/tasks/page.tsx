@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { X, Plus, Trash2, Circle, CheckCircle } from "lucide-react"
+import { X, Plus, Trash2, Circle, CheckCircle, Edit2, Check, X as XIcon } from "lucide-react"
 import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
@@ -14,11 +14,15 @@ import type { Task } from "@/contexts/PomodoroContext"
  * Allows users to add, complete, delete, and reorder tasks
  */
 function TasksPageContent() {
-  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, setTasks, dataLoading, selectedTaskId, currentTask, toggleTaskCompletion } = usePomodoro()
+  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, setTasks, dataLoading, selectedTaskId, currentTask, toggleTaskCompletion, updateTask } = usePomodoro()
 
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Editing state
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null)
+  const [editingText, setEditingText] = useState("")
 
   /**
    * Handle Enter key press to add task
@@ -26,6 +30,44 @@ function TasksPageContent() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       addTask()
+    }
+  }
+
+  /**
+   * Start editing a task
+   */
+  const startEditing = (task: Task) => {
+    setEditingTaskId(task.id)
+    setEditingText(task.name)
+  }
+
+  /**
+   * Save the edited task
+   */
+  const saveEdit = async () => {
+    if (editingTaskId && editingText.trim()) {
+      await updateTask(editingTaskId, { name: editingText.trim() })
+      setEditingTaskId(null)
+      setEditingText("")
+    }
+  }
+
+  /**
+   * Cancel editing
+   */
+  const cancelEdit = () => {
+    setEditingTaskId(null)
+    setEditingText("")
+  }
+
+  /**
+   * Handle Enter key press in edit mode
+   */
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      saveEdit()
+    } else if (e.key === "Escape") {
+      cancelEdit()
     }
   }
 
@@ -161,27 +203,73 @@ function TasksPageContent() {
                     className={selectedTaskId === task.id ? "text-blue-400" : "text-gray-600"} 
                   />
                 </button>
-                <button
-                  onClick={() => selectTask(task)}
-                  className="flex-1 text-left flex items-center gap-3"
-                  aria-label={`Select task: ${task.name}`}
-                >
-                  <span className={selectedTaskId === task.id ? "text-white font-medium" : "text-gray-300"}>
-                    {task.name}
-                  </span>
-                  {selectedTaskId === task.id && (
-                    <span className="text-xs text-blue-400 bg-transparent px-2 py-1 rounded">
-                      selected
+                
+                {editingTaskId === task.id ? (
+                  // Edit mode
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      onKeyDown={handleEditKeyDown}
+                      className="flex-1 bg-transparent border border-gray-600 px-2 py-1 rounded outline-none focus:border-gray-400"
+                      autoFocus
+                    />
+                    <button
+                      onClick={saveEdit}
+                      className="text-green-400 hover:text-green-300 p-1"
+                      aria-label="Save changes"
+                    >
+                      <Check size={16} />
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="text-red-400 hover:text-red-300 p-1"
+                      aria-label="Cancel editing"
+                    >
+                      <XIcon size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  // View mode
+                  <button
+                    onClick={() => selectTask(task)}
+                    onDoubleClick={() => startEditing(task)}
+                    className="flex-1 text-left flex items-center gap-3"
+                    aria-label={`Select task: ${task.name}`}
+                  >
+                    <span className={selectedTaskId === task.id ? "text-white font-medium" : "text-gray-300"}>
+                      {task.name}
                     </span>
+                    {selectedTaskId === task.id && (
+                      <span className="text-xs text-blue-400 bg-transparent px-2 py-1 rounded">
+                        selected
+                      </span>
+                    )}
+                  </button>
+                )}
+                
+                <div className="flex items-center gap-1">
+                  {editingTaskId !== task.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startEditing(task)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-blue-400 transition-all p-1"
+                      aria-label={`Edit task: ${task.name}`}
+                    >
+                      <Edit2 size={16} />
+                    </button>
                   )}
-                </button>
-                <button
-                  onClick={() => deleteTask(task.id)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 transition-all"
-                  aria-label={`Delete task: ${task.name}`}
-                >
-                  <Trash2 size={18} />
-                </button>
+                  <button
+                    onClick={() => deleteTask(task.id)}
+                    className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 transition-all p-1"
+                    aria-label={`Delete task: ${task.name}`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -203,7 +291,57 @@ function TasksPageContent() {
                     >
                       <CheckCircle size={20} className="text-gray-600 hover:text-green-400 transition-colors" />
                     </button>
-                    <span className="text-gray-500 line-through">{task.name}</span>
+                    
+                    {editingTaskId === task.id ? (
+                      // Edit mode
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onKeyDown={handleEditKeyDown}
+                          className="flex-1 bg-transparent border border-gray-600 px-2 py-1 rounded outline-none focus:border-gray-400"
+                          autoFocus
+                        />
+                        <button
+                          onClick={saveEdit}
+                          className="text-green-400 hover:text-green-300 p-1"
+                          aria-label="Save changes"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          aria-label="Cancel editing"
+                        >
+                          <XIcon size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      // View mode
+                      <span 
+                        className="text-gray-500 line-through flex-1 cursor-pointer"
+                        onDoubleClick={() => startEditing(task)}
+                      >
+                        {task.name}
+                      </span>
+                    )}
+                    
+                    <div className="flex items-center gap-1">
+                      {editingTaskId !== task.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEditing(task)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-blue-400 transition-all p-1"
+                          aria-label={`Edit task: ${task.name}`}
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
             </>
@@ -212,8 +350,16 @@ function TasksPageContent() {
 
         {/* Instructions */}
         {tasks.filter((t) => !t.completed).length > 1 && (
-          <div className="mt-6 text-center text-gray-600 text-xs">
+          <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
             <p>Drag and drop tasks to reorder them</p>
+            <p>Double-click task name or click edit icon to edit</p>
+            <p>Click circle to complete, checkmark to uncomplete</p>
+          </div>
+        )}
+        {tasks.filter((t) => !t.completed).length <= 1 && tasks.length > 0 && (
+          <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
+            <p>Double-click task name or click edit icon to edit</p>
+            <p>Click circle to complete, checkmark to uncomplete</p>
           </div>
         )}
       </div>

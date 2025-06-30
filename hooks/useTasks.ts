@@ -106,6 +106,29 @@ export function useTasks(userId: string | undefined) {
     }
   }, [userId, tasks])
 
+  // Update task
+  const updateTask = useCallback(async (taskId: number, updates: Partial<Task>) => {
+    if (userId) {
+      try {
+        const { error } = await pomodoroService.tasks.update(userId, taskId, updates)
+        if (error) {
+          console.error("Error updating task:", error)
+          return
+        }
+
+        setTasks((prev) =>
+          prev.map((task) =>
+            task.id === taskId
+              ? { ...task, ...updates }
+              : task
+          )
+        )
+      } catch (error) {
+        console.error("Error updating task:", error)
+      }
+    }
+  }, [userId])
+
   // Update task order
   const updateTaskOrder = useCallback(async (newTasks: Task[]) => {
     setTasks(newTasks)
@@ -159,5 +182,6 @@ export function useTasks(userId: string | undefined) {
     currentTask,
     selectedTaskId,
     loadTasks,
+    updateTask,
   }
 }

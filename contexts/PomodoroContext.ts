@@ -61,6 +61,7 @@ export interface PomodoroContextType {
   deleteTask: (taskId: number) => void
   selectTask: (task: Task) => void
   toggleTaskCompletion: (taskId: number) => void
+  updateTask: (taskId: number, updates: Partial<Task>) => void
   setTasks: (tasks: Task[] | ((prev: Task[]) => Task[])) => void
 
   // Settings actions

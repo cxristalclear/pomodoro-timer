@@ -35,7 +35,7 @@ export function usePomodoroLogic() {
 
   // Tasks
   const tasksHook = useTasks(userId);
-  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, currentTask, selectedTaskId, loadTasks, toggleTaskCompletion } = tasksHook;
+  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, currentTask, selectedTaskId, loadTasks, toggleTaskCompletion, updateTask } = tasksHook;
 
   // Sessions
   const sessionsHook = useSessions(userId);
@@ -138,6 +138,7 @@ export function usePomodoroLogic() {
     deleteTask,
     selectTask,
     toggleTaskCompletion,
+    updateTask,
     setTasks,
 
     // Sessions
