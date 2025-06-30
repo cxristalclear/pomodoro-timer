@@ -108,12 +108,12 @@ function TasksPageContent() {
             onChange={(e) => setNewTaskInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Add new task..."
-            className="flex-1 bg-gray-900 px-4 py-3 rounded outline-none focus:bg-gray-800 transition-colors"
+            className="flex-1 bg-transparent border border-gray-800 px-4 py-3 rounded outline-none focus:border-gray-600 transition-colors"
             aria-label="New task name"
           />
           <button
             onClick={addTask}
-            className="bg-gray-900 hover:bg-gray-800 p-3 rounded transition-colors"
+            className="bg-transparent hover:bg-gray-800 p-3 rounded transition-colors"
             aria-label="Add task"
           >
             <Plus size={20} />
