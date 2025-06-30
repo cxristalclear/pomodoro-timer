@@ -35,7 +35,7 @@ export function usePomodoroLogic() {
 
   // Tasks
   const tasksHook = useTasks(userId);
-  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, currentTask, selectedTaskId, loadTasks } = tasksHook;
+  const { tasks, setTasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, currentTask, selectedTaskId, loadTasks, toggleTaskCompletion } = tasksHook;
 
   // Sessions
   const sessionsHook = useSessions(userId);
@@ -75,6 +75,39 @@ export function usePomodoroLogic() {
     }
   }, [userId, authLoading, loadTasksWithLoading, setTasks]);
 
+  // Auto-select first task when tasks are loaded and no task is selected
+  useEffect(() => {
+    if (tasks.length > 0 && !selectedTaskId && !dataLoading) {
+      const firstActiveTask = tasks.find(task => !task.completed);
+      if (firstActiveTask) {
+        console.log("Auto-selecting first task:", firstActiveTask.name);
+        selectTask(firstActiveTask);
+      }
+    }
+  }, [tasks, selectedTaskId, dataLoading, selectTask]);
+
+  // Auto-select next task when current task is deleted or completed
+  useEffect(() => {
+    if (selectedTaskId && tasks.length > 0 && !dataLoading) {
+      const currentTaskExists = tasks.find(task => task.id === selectedTaskId);
+      if (!currentTaskExists) {
+        // Current task was deleted, select the next available task
+        const nextActiveTask = tasks.find(task => !task.completed);
+        if (nextActiveTask) {
+          console.log("Current task removed, selecting next task:", nextActiveTask.name);
+          selectTask(nextActiveTask);
+        }
+      } else if (currentTaskExists.completed) {
+        // Current task was completed, select the next available task
+        const nextActiveTask = tasks.find(task => !task.completed);
+        if (nextActiveTask) {
+          console.log("Current task completed, selecting next task:", nextActiveTask.name);
+          selectTask(nextActiveTask);
+        }
+      }
+    }
+  }, [tasks, selectedTaskId, dataLoading, selectTask]);
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     toggleTimer,
@@ -104,6 +137,7 @@ export function usePomodoroLogic() {
     addTask,
     deleteTask,
     selectTask,
+    toggleTaskCompletion,
     setTasks,
 
     // Sessions

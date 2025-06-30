@@ -73,6 +73,39 @@ export function useTasks(userId: string | undefined) {
     }
   }, [userId])
 
+  // Toggle task completion
+  const toggleTaskCompletion = useCallback(async (taskId: number) => {
+    if (userId) {
+      try {
+        const currentTask = tasks.find(task => task.id === taskId)
+        if (!currentTask) return
+
+        const newCompletedState = !currentTask.completed
+        const completedAt = newCompletedState ? new Date().toISOString() : undefined
+
+        const { error } = await pomodoroService.tasks.update(userId, taskId, {
+          completed: newCompletedState,
+          completed_at: completedAt
+        } as any)
+
+        if (error) {
+          console.error("Error updating task completion:", error)
+          return
+        }
+
+        setTasks((prev) =>
+          prev.map((task) =>
+            task.id === taskId
+              ? { ...task, completed: newCompletedState, completedAt }
+              : task
+          )
+        )
+      } catch (error) {
+        console.error("Error updating task completion:", error)
+      }
+    }
+  }, [userId, tasks])
+
   // Update task order
   const updateTaskOrder = useCallback(async (newTasks: Task[]) => {
     setTasks(newTasks)
@@ -121,6 +154,7 @@ export function useTasks(userId: string | undefined) {
     setNewTaskInput,
     addTask,
     deleteTask,
+    toggleTaskCompletion,
     selectTask,
     currentTask,
     selectedTaskId,

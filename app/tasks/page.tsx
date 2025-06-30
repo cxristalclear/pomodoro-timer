@@ -14,7 +14,7 @@ import type { Task } from "@/contexts/PomodoroContext"
  * Allows users to add, complete, delete, and reorder tasks
  */
 function TasksPageContent() {
-  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, setTasks, dataLoading } = usePomodoro()
+  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, setTasks, dataLoading, selectedTaskId, currentTask, toggleTaskCompletion } = usePomodoro()
 
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -98,6 +98,14 @@ function TasksPageContent() {
         </Link>
       </header>
 
+      {/* Current task indicator */}
+      {currentTask && (
+        <div className="px-6 py-3 bg-transparent border-b border-gray-800">
+          <div className="text-sm text-gray-400">Current Task:</div>
+          <div className="text-white font-medium">{currentTask}</div>
+        </div>
+      )}
+
       {/* Task management interface */}
       <div className="flex-1 p-6 max-w-2xl mx-auto w-full">
         {/* Add new task input */}
@@ -136,15 +144,36 @@ function TasksPageContent() {
                 onDragEnd={handleDragEnd}
                 className={`flex items-center gap-3 p-3 hover:bg-gray-900 rounded group transition-colors cursor-move ${
                   dragOverIndex === index ? "bg-gray-800 border-t-2 border-gray-600" : ""
-                } ${draggedTask?.id === task.id ? "opacity-50" : ""}`}
+                } ${draggedTask?.id === task.id ? "opacity-50" : ""} ${
+                  selectedTaskId === task.id ? "" : ""
+                }`}
               >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleTaskCompletion(task.id)
+                  }}
+                  className="flex items-center gap-3"
+                  aria-label={`${task.completed ? 'Mark as incomplete' : 'Mark as complete'}: ${task.name}`}
+                >
+                  <Circle 
+                    size={20} 
+                    className={selectedTaskId === task.id ? "text-blue-400" : "text-gray-600"} 
+                  />
+                </button>
                 <button
                   onClick={() => selectTask(task)}
                   className="flex-1 text-left flex items-center gap-3"
                   aria-label={`Select task: ${task.name}`}
                 >
-                  <Circle size={20} className="text-gray-600" />
-                  <span className="text-gray-300">{task.name}</span>
+                  <span className={selectedTaskId === task.id ? "text-white font-medium" : "text-gray-300"}>
+                    {task.name}
+                  </span>
+                  {selectedTaskId === task.id && (
+                    <span className="text-xs text-blue-400 bg-transparent px-2 py-1 rounded">
+                      selected
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => deleteTask(task.id)}
@@ -163,8 +192,17 @@ function TasksPageContent() {
               {tasks
                 .filter((t) => t.completed)
                 .map((task) => (
-                  <div key={task.id} className="flex items-center gap-3 p-3 opacity-50">
-                    <CheckCircle size={20} className="text-gray-600" />
+                  <div key={task.id} className="flex items-center gap-3 p-3 opacity-50 hover:opacity-75 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleTaskCompletion(task.id)
+                      }}
+                      className="flex items-center gap-3"
+                      aria-label={`Mark as incomplete: ${task.name}`}
+                    >
+                      <CheckCircle size={20} className="text-gray-600 hover:text-green-400 transition-colors" />
+                    </button>
                     <span className="text-gray-500 line-through">{task.name}</span>
                   </div>
                 ))}
