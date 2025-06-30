@@ -89,7 +89,14 @@ export function usePomodoroLogic() {
 
     // Settings
     settings,
-    setSettings,
+    setSettings: async (settingsOrUpdater: any) => {
+      // If passed a function, resolve it
+      let nextSettings = settingsOrUpdater;
+      if (typeof settingsOrUpdater === "function") {
+        nextSettings = settingsOrUpdater(settings);
+      }
+      await updateSettings(nextSettings, isRunning, resetTimer);
+    },
     updateSetting: updateSettings,
     resetSettings,
     hasTimerSettingsChanged,
