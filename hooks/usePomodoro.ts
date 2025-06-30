@@ -45,10 +45,12 @@ export const usePomodoroLogic = () => {
   // Loading state for data sync
   const [dataLoading, setDataLoading] = useState(false)
 
-  // Refs for audio and notifications
+  // Refs for audio, notifications, and timing
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const notificationPermissionRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const startTimeRef = useRef<number | null>(null)
+  const totalDurationRef = useRef<number>(0)
 
   // Router for navigation
   const router = useRouter()
@@ -159,19 +161,33 @@ export const usePomodoroLogic = () => {
    */
   const resetTimerToCurrentSession = useCallback(() => {
     setIsRunning(false)
+    startTimeRef.current = null
+
+    let duration: number
     if (sessionType === "work") {
-      setTime(settings.workDuration * 60)
+      duration = settings.workDuration * 60
     } else if (sessionType === "shortBreak") {
-      setTime(settings.breakDuration * 60)
+      duration = settings.breakDuration * 60
     } else {
-      setTime(settings.longBreakDuration * 60)
+      duration = settings.longBreakDuration * 60
     }
+
+    setTime(duration)
+    totalDurationRef.current = duration
   }, [sessionType, settings])
 
   // Timer actions
   const toggleTimer = useCallback(() => {
+    if (isRunning) {
+      // Pausing - clear the start time
+      startTimeRef.current = null
+    } else {
+      // Starting - set the start time accounting for already elapsed time
+      const elapsedTime = totalDurationRef.current - time
+      startTimeRef.current = Date.now() - elapsedTime * 1000
+    }
     setIsRunning((prev) => !prev)
-  }, [])
+  }, [isRunning, time])
 
   const resetTimer = useCallback(() => {
     resetTimerToCurrentSession()
@@ -328,20 +344,23 @@ export const usePomodoroLogic = () => {
   }, [sessionType, currentTask, settings, sessionCount, selectedTaskId, playSound, user, supabase])
 
   /**
-   * Main timer countdown effect
+   * Main timer countdown effect - uses timestamp-based calculation to handle tab switching
    */
   useEffect(() => {
-    if (isRunning) {
+    if (isRunning && startTimeRef.current) {
       intervalRef.current = setInterval(() => {
-        setTime((prevTime) => {
-          if (prevTime <= 1) {
-            setIsRunning(false)
-            handleTimerComplete()
-            return 0
-          }
-          return prevTime - 1
-        })
-      }, 1000)
+        const now = Date.now()
+        const elapsedSeconds = Math.floor((now - startTimeRef.current!) / 1000)
+        const remainingTime = Math.max(0, totalDurationRef.current - elapsedSeconds)
+
+        setTime(remainingTime)
+
+        if (remainingTime <= 0) {
+          setIsRunning(false)
+          startTimeRef.current = null
+          handleTimerComplete()
+        }
+      }, 100) // Update more frequently for smoother display
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -353,6 +372,31 @@ export const usePomodoroLogic = () => {
         clearInterval(intervalRef.current)
       }
     }
+  }, [isRunning, handleTimerComplete])
+
+  /**
+   * Handle visibility change to keep timer running in background
+   */
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && isRunning && startTimeRef.current) {
+        // Recalculate time when tab becomes visible again
+        const now = Date.now()
+        const elapsedSeconds = Math.floor((now - startTimeRef.current) / 1000)
+        const remainingTime = Math.max(0, totalDurationRef.current - elapsedSeconds)
+
+        setTime(remainingTime)
+
+        if (remainingTime <= 0) {
+          setIsRunning(false)
+          startTimeRef.current = null
+          handleTimerComplete()
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
   }, [isRunning, handleTimerComplete])
 
   /**
