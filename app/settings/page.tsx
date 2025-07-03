@@ -269,14 +269,14 @@ function SettingsPageContent() {
                   Countdown
                 </button>
                 <button
-                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "elapsed" }))}
+                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "digital" }))}
                   className={`flex-1 px-3 py-2 rounded transition-colors ${
-                    localSettings.timerDisplayMode === "elapsed"
+                    localSettings.timerDisplayMode === "digital"
                       ? "bg-blue-600 text-white"
                       : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                   }`}
                 >
-                  Elapsed
+                  Digital
                 </button>
               </div>
             </div>

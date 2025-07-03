@@ -1,6 +1,5 @@
 "use client"
 import { X } from "lucide-react"
-import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { generateCalendarGrid, getIntensityColor, calculateAnalytics } from "@/lib/utils"
@@ -214,9 +213,7 @@ function AnalyticsPageContent() {
 export default function AnalyticsPage() {
   return (
     <ProtectedRoute>
-      <PomodoroProvider>
-        <AnalyticsPageContent />
-      </PomodoroProvider>
+      <AnalyticsPageContent />
     </ProtectedRoute>
   )
 }
