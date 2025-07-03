@@ -84,6 +84,7 @@ export interface PomodoroContextType {
     totalPomodoros: number
     avgPomodorosPerTask: number
   }>
+  loadTasks: () => Promise<void>
 
   // Settings actions
   setSettings: (settings: Settings | ((prev: Settings) => Settings)) => void

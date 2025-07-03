@@ -273,10 +273,15 @@ export function usePomodoroLogic() {
   const selectTaskAndNavigate = useCallback(async (task: Task) => {
     // First select the task (this will trigger the reordering)
     await selectTask(task);
-    
     // Then navigate
     router.push("/");
-  }, [selectTask, router]);
+    // Start the timer if it isn't already running
+    setTimeout(() => {
+      if (!isRunning) {
+        toggleTimer();
+      }
+    }, 100); // slight delay to ensure navigation/render
+  }, [selectTask, router, isRunning, toggleTimer]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -358,6 +363,7 @@ export function usePomodoroLogic() {
     nextTask,
     incrementTaskPomodoros,
     getTaskStats,
+    loadTasks,
 
     // Sessions
     sessions,

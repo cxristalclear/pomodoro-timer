@@ -14,7 +14,7 @@ import type { Task } from "@/contexts/PomodoroContext"
  * Allows users to add, complete, delete, and reorder tasks
  */
 function TasksPageContent() {
-  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, selectTaskAndNavigate, setTasks, dataLoading, selectedTaskId, currentTask, toggleTaskCompletion, updateTask } = usePomodoro()
+  const { tasks, newTaskInput, setNewTaskInput, addTask, deleteTask, selectTask, selectTaskAndNavigate, setTasks, dataLoading, selectedTaskId, currentTask, toggleTaskCompletion, updateTask, loadTasks } = usePomodoro()
 
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -140,6 +140,13 @@ function TasksPageContent() {
     setDraggedTask(null)
     setDragOverIndex(null)
   }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && loadTasks) {
+      loadTasks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     return () => {

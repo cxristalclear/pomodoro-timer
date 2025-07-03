@@ -7,6 +7,7 @@ import { usePomodoro } from "@/contexts/PomodoroContext"
 import { formatTime } from "@/lib/utils"
 import Link from "next/link"
 import { useTimerShortcuts } from "@/hooks/useTimerShortcuts"
+import { useEffect } from "react"
 
 /**
  * Main timer display component showing the countdown, controls, and session info
@@ -33,6 +34,7 @@ export const TimerDisplay: React.FC = () => {
     toggleMute,
     tasks,
     selectedTaskId,
+    loadTasks,
   } = usePomodoro()
 
   const router = useRouter()
@@ -108,6 +110,13 @@ export const TimerDisplay: React.FC = () => {
     
     return "[select a task]"
   }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && loadTasks) {
+      loadTasks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
