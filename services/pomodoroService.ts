@@ -327,7 +327,6 @@ export const pomodoroService = {
         auto_start_breaks: settings.autoStartBreaks,
         auto_start_work: settings.autoStartWork,
         timer_display_mode: settings.timerDisplayMode,
-        notifications_enabled: settings.notificationsEnabled,
       }
       
       console.log("Upserting settings:", settingsData)

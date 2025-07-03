@@ -14,7 +14,6 @@ export function useSettings(userId: string | undefined) {
     autoStartBreaks: true,
     autoStartWork: false,
     timerDisplayMode: "digital",
-    notificationsEnabled: true,
   });
 
   // Load settings on mount and when userId changes
@@ -44,7 +43,6 @@ export function useSettings(userId: string | undefined) {
           autoStartBreaks: data.auto_start_breaks ?? true,
           autoStartWork: data.auto_start_work ?? false,
           timerDisplayMode: data.timer_display_mode || "digital", // Default to digital if not set
-          notificationsEnabled: data.notifications_enabled ?? true,
         })
       }
     } catch (error) {
@@ -97,7 +95,6 @@ export function useSettings(userId: string | undefined) {
       autoStartBreaks: true,
       autoStartWork: false,
       timerDisplayMode: "digital",
-      notificationsEnabled: true,
     })
   }
 

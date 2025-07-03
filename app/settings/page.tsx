@@ -233,45 +233,6 @@ function SettingsPageContent() {
               />
               <div className="text-xs text-gray-500 mt-1">{Math.round(localSettings.soundVolume * 100)}%</div>
             </div>
-
-            <ToggleButton
-              enabled={localSettings.notificationsEnabled}
-              onChange={() => setLocalSettings((prev) => ({ ...prev, notificationsEnabled: !prev.notificationsEnabled }))}
-              label="Browser Notifications"
-            />
-
-            {localSettings.notificationsEnabled && (
-              <div className="ml-4 text-sm text-gray-500">
-                <button
-                  onClick={() => {
-                    if ("Notification" in window) {
-                      if (Notification.permission === "granted") {
-                        new Notification("🍅 Test Notification", {
-                          body: "Browser notifications are working!",
-                          icon: "/placeholder-logo.png"
-                        });
-                      } else if (Notification.permission !== "denied") {
-                        Notification.requestPermission().then(permission => {
-                          if (permission === "granted") {
-                            new Notification("🍅 Test Notification", {
-                              body: "Browser notifications are now enabled!",
-                              icon: "/placeholder-logo.png"
-                            });
-                          }
-                        });
-                      } else {
-                        alert("Notifications are blocked. Please enable them in your browser settings.");
-                      }
-                    } else {
-                      alert("This browser doesn't support notifications.");
-                    }
-                  }}
-                  className="text-blue-400 hover:text-blue-300 underline"
-                >
-                  Test notification
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Auto-start settings */}
@@ -299,24 +260,24 @@ function SettingsPageContent() {
               <label className="block text-gray-500 text-sm mb-2">Display Mode</label>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "digital" }))}
+                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "countdown" }))}
                   className={`flex-1 px-3 py-2 rounded transition-colors ${
-                    localSettings.timerDisplayMode === "digital"
+                    localSettings.timerDisplayMode === "countdown"
                       ? "bg-blue-600 text-white"
                       : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                   }`}
                 >
-                  Digital
+                  Countdown
                 </button>
                 <button
-                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "analog" }))}
+                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "elapsed" }))}
                   className={`flex-1 px-3 py-2 rounded transition-colors ${
-                    localSettings.timerDisplayMode === "analog"
+                    localSettings.timerDisplayMode === "elapsed"
                       ? "bg-blue-600 text-white"
                       : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                   }`}
                 >
-                  Analog
+                  Elapsed
                 </button>
               </div>
             </div>

@@ -121,7 +121,6 @@ export interface Database {
           created_at: string
           updated_at: string
           timer_display_mode: string
-          notifications_enabled: boolean
         }
         Insert: {
           id?: number
@@ -137,7 +136,6 @@ export interface Database {
           created_at?: string
           updated_at?: string
           timer_display_mode?: string
-          notifications_enabled?: boolean
         }
         Update: {
           id?: number
@@ -153,7 +151,6 @@ export interface Database {
           created_at?: string
           updated_at?: string
           timer_display_mode?: string
-          notifications_enabled?: boolean
         }
       }
     }

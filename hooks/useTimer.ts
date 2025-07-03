@@ -88,7 +88,6 @@ export function useTimer({
         const timeLeft = Math.max(0, duration)
         setTime(timeLeft)
         if (timeLeft <= 0) {
-          console.log("⏰ Timer reached zero! Calling onComplete...");
           setIsRunning(false)
           startTimeRef.current = null
           endTimeRef.current = null
@@ -123,7 +122,6 @@ export function useTimer({
         const timeLeft = Math.max(0, duration)
         setTime(timeLeft)
         if (timeLeft <= 0) {
-          console.log("⏰ Timer reached zero! Calling onComplete...");
           setIsRunning(false)
           startTimeRef.current = null
           endTimeRef.current = null

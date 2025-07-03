@@ -57,45 +57,8 @@ export function useAudio({ soundEnabled, soundVolume }: { soundEnabled: boolean;
 
   // Send browser notification
   const sendNotification = (title: string, options?: NotificationOptions) => {
-    console.log("🔔 sendNotification called with:", title, options);
-    
-    if (typeof window !== "undefined") {
-      if ("Notification" in window) {
-        console.log("🔔 Notification permission:", Notification.permission);
-        
-        if (Notification.permission === "granted") {
-          try {
-            console.log("🔔 Creating notification...");
-            new Notification(title, options)
-            console.log("✅ Notification created successfully");
-          } catch (error) {
-            console.warn("❌ Failed to show notification:", error)
-          }
-        } else if (Notification.permission === "default") {
-          console.log("🔔 Requesting notification permission...");
-          // Auto-request permission if not yet decided
-          Notification.requestPermission().then((permission) => {
-            console.log("🔔 Permission result:", permission);
-            notificationPermissionRef.current = permission === "granted"
-            if (permission === "granted") {
-              try {
-                console.log("🔔 Creating notification after permission grant...");
-                new Notification(title, options)
-                console.log("✅ Notification created successfully after permission");
-              } catch (error) {
-                console.warn("❌ Failed to show notification:", error)
-              }
-            }
-          })
-        } else {
-          console.log("🚫 Notification permission denied");
-        }
-        // If permission is denied, silently fail
-      } else {
-        console.log("🚫 Notifications not supported in this browser");
-      }
-    } else {
-      console.log("🚫 Window not available");
+    if (typeof window !== "undefined" && notificationPermissionRef.current) {
+      new Notification(title, options)
     }
   }
 

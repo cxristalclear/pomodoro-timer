@@ -42,7 +42,6 @@ export interface Settings {
   autoStartBreaks: boolean
   autoStartWork: boolean
   timerDisplayMode?: "digital" | "analog" | "countdown"
-  notificationsEnabled: boolean
 }
 
 // Enhanced filter and search interfaces
