@@ -2,17 +2,29 @@
 
 import { createContext, useContext } from "react"
 
+export type TaskPriority = "high" | "medium" | "low"
+
 export interface Task {
   id: number
   name: string
   completed: boolean
+  position: number
   estimatedPomodoros: number
   actualPomodoros: number
   createdAt: string
   completedAt?: string
+  
+  // Enhanced fields now available in your database
+  category?: string
+  priority?: TaskPriority
+  dueDate?: string
+  notes?: string
+  isArchived: boolean
+  parentTaskId?: number
 }
 
 export interface Session {
+  id?: number
   task: string
   taskId?: number
   duration: number
@@ -29,7 +41,25 @@ export interface Settings {
   soundVolume: number
   autoStartBreaks: boolean
   autoStartWork: boolean
-  timerDisplayMode?: "digital" | "analog"
+  timerDisplayMode?: "digital" | "analog" | "countdown"
+  notificationsEnabled: boolean
+}
+
+// Enhanced filter and search interfaces
+export interface TaskFilters {
+  category?: string
+  priority?: TaskPriority
+  archived?: boolean
+  completed?: boolean
+  parentTaskId?: number
+  searchQuery?: string
+  dueDateFrom?: string
+  dueDateTo?: string
+}
+
+export interface BulkTaskUpdate {
+  taskIds: number[]
+  updates: Partial<Pick<Task, 'category' | 'priority' | 'completed' | 'isArchived' | 'notes'>>
 }
 
 export interface PomodoroContextType {
@@ -45,6 +75,11 @@ export interface PomodoroContextType {
   completedTasks: number
   tasks: Task[]
   newTaskInput: string
+
+  // Enhanced task state
+  taskFilters: TaskFilters
+  selectedTasks: number[]  // For bulk operations
+  bulkEditMode: boolean
 
   // Session tracking
   sessions: Session[]
@@ -67,7 +102,7 @@ export interface PomodoroContextType {
   toggleNotifications: () => void
   toggleMute: () => void
 
-  // Task actions
+  // Basic task actions (existing)
   setNewTaskInput: (input: string) => void
   addTask: () => void
   deleteTask: (taskId: number) => void
@@ -85,6 +120,27 @@ export interface PomodoroContextType {
     avgPomodorosPerTask: number
   }>
   loadTasks: () => Promise<void>
+
+  // Enhanced task actions (new)
+  addTaskWithDetails: (taskDetails: Partial<Task>) => Promise<void>
+  bulkUpdateTasks: (bulkUpdate: BulkTaskUpdate) => Promise<void>
+  archiveTask: (taskId: number) => Promise<void>
+  unarchiveTask: (taskId: number) => Promise<void>
+  searchTasks: (query: string) => void
+  filterTasks: (filters: TaskFilters) => void
+  clearFilters: () => void
+  toggleTaskSelection: (taskId: number) => void
+  selectAllTasks: () => void
+  clearTaskSelection: () => void
+  toggleBulkEditMode: () => void
+  
+  // Category management
+  getAvailableCategories: () => string[]
+  createCategory: (category: string) => void
+  
+  // Task hierarchy
+  getSubtasks: (parentId: number) => Task[]
+  createSubtask: (parentId: number, taskDetails: Partial<Task>) => Promise<void>
 
   // Settings actions
   setSettings: (settings: Settings | ((prev: Settings) => Settings)) => void

@@ -57,8 +57,29 @@ export function useAudio({ soundEnabled, soundVolume }: { soundEnabled: boolean;
 
   // Send browser notification
   const sendNotification = (title: string, options?: NotificationOptions) => {
-    if (typeof window !== "undefined" && notificationPermissionRef.current) {
-      new Notification(title, options)
+    if (typeof window !== "undefined") {
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          try {
+            new Notification(title, options)
+          } catch (error) {
+            console.warn("Failed to show notification:", error)
+          }
+        } else if (Notification.permission === "default") {
+          // Auto-request permission if not yet decided
+          Notification.requestPermission().then((permission) => {
+            notificationPermissionRef.current = permission === "granted"
+            if (permission === "granted") {
+              try {
+                new Notification(title, options)
+              } catch (error) {
+                console.warn("Failed to show notification:", error)
+              }
+            }
+          })
+        }
+        // If permission is denied, silently fail
+      }
     }
   }
 

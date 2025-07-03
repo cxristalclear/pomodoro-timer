@@ -1,61 +1,202 @@
-// Pomodoro Supabase Service Layer
-// Handles all DB operations for tasks, sessions, settings
+// Enhanced services/pomodoroService.ts
+// Now supports all the enhanced database fields that are already in your schema
+
 import { getSupabaseClient } from "@/lib/supabase/client"
-import type { Task, Session, Settings } from "@/contexts/PomodoroContext"
+import type { Task, Session, Settings, TaskFilters, BulkTaskUpdate } from "@/contexts/PomodoroContext"
 
 export const pomodoroService = {
   tasks: {
-    async create(userId: string, name: string, position: number, estimatedPomodoros: number = 1) {
+    // Enhanced create method with all new fields
+    async create(
+      userId: string, 
+      taskData: {
+        name: string
+        position: number
+        estimatedPomodoros?: number
+        category?: string
+        priority?: string
+        dueDate?: string
+        notes?: string
+        parentTaskId?: number
+      }
+    ) {
       const supabase = getSupabaseClient()
-      console.log("Creating task with data:", { userId, name, position, estimatedPomodoros })
+      console.log("Creating task with enhanced data:", taskData)
       
-      // Try with new schema first
       const insertData = { 
         user_id: userId, 
-        name, 
-        position,
-        estimated_pomodoros: estimatedPomodoros,
-        actual_pomodoros: 0
+        name: taskData.name,
+        position: taskData.position,
+        estimated_pomodoros: taskData.estimatedPomodoros || 1,
+        actual_pomodoros: 0,
+        category: taskData.category || null,
+        priority: taskData.priority || null,
+        due_date: taskData.dueDate || null,
+        notes: taskData.notes || null,
+        parent_task_id: taskData.parentTaskId || null,
+        is_archived: false
       }
       
-      console.log("Insert data:", insertData)
-      
-      let result = await supabase.from("tasks").insert(insertData).select().single()
-      
-      console.log("Task creation result:", result)
-      
-      // If new schema fails, try with old schema
-      if (result.error && result.error.message?.includes('column "estimated_pomodoros" does not exist')) {
-        console.log("New schema not available, trying old schema...")
-        const oldInsertData = { 
-          user_id: userId, 
-          name, 
-          position
-        }
-        result = await supabase.from("tasks").insert(oldInsertData).select().single()
-        console.log("Old schema task creation result:", result)
-      }
+      const result = await supabase.from("tasks").insert(insertData).select().single()
       
       if (result.error) {
-        console.error("Task creation error:", result.error)
-        console.error("Error details:", result.error.details)
-        console.error("Error hint:", result.error.hint)
+        console.error("Enhanced task creation error:", result.error)
       }
       
       return result
     },
+
+    // Enhanced update method 
     async update(userId: string, id: number, updates: Partial<Task>) {
       const supabase = getSupabaseClient()
-      return supabase.from("tasks").update(updates).eq("id", id).eq("user_id", userId)
+      
+      // Convert camelCase to snake_case for database
+      const dbUpdates: any = {}
+      if (updates.name !== undefined) dbUpdates.name = updates.name
+      if (updates.completed !== undefined) dbUpdates.completed = updates.completed
+      if (updates.position !== undefined) dbUpdates.position = updates.position
+      if (updates.estimatedPomodoros !== undefined) dbUpdates.estimated_pomodoros = updates.estimatedPomodoros
+      if (updates.actualPomodoros !== undefined) dbUpdates.actual_pomodoros = updates.actualPomodoros
+      if (updates.category !== undefined) dbUpdates.category = updates.category
+      if (updates.priority !== undefined) dbUpdates.priority = updates.priority
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived
+      if (updates.parentTaskId !== undefined) dbUpdates.parent_task_id = updates.parentTaskId
+      if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt
+      
+      return supabase.from("tasks").update(dbUpdates).eq("id", id).eq("user_id", userId)
     },
+
+    // Enhanced bulk update method
+    async bulkUpdate(userId: string, taskIds: number[], updates: Partial<Task>) {
+      const supabase = getSupabaseClient()
+      
+      // Convert updates to database format
+      const dbUpdates: any = {}
+      if (updates.category !== undefined) dbUpdates.category = updates.category
+      if (updates.priority !== undefined) dbUpdates.priority = updates.priority
+      if (updates.completed !== undefined) {
+        dbUpdates.completed = updates.completed
+        dbUpdates.completed_at = updates.completed ? new Date().toISOString() : null
+      }
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes
+      
+      return supabase
+        .from("tasks")
+        .update(dbUpdates)
+        .in("id", taskIds)
+        .eq("user_id", userId)
+    },
+
     async delete(userId: string, id: number) {
       const supabase = getSupabaseClient()
       return supabase.from("tasks").delete().eq("id", id).eq("user_id", userId)
     },
-    async list(userId: string) {
+
+    // Enhanced list method with filtering
+    async list(userId: string, filters?: TaskFilters) {
       const supabase = getSupabaseClient()
-      return supabase.from("tasks").select("*").eq("user_id", userId).order("position", { ascending: true })
+      let query = supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", userId)
+        .order("position", { ascending: true })
+
+      // Apply filters
+      if (filters) {
+        if (filters.category) {
+          query = query.eq("category", filters.category)
+        }
+        if (filters.priority) {
+          query = query.eq("priority", filters.priority)
+        }
+        if (filters.archived !== undefined) {
+          query = query.eq("is_archived", filters.archived)
+        }
+        if (filters.completed !== undefined) {
+          query = query.eq("completed", filters.completed)
+        }
+        if (filters.parentTaskId !== undefined) {
+          query = query.eq("parent_task_id", filters.parentTaskId)
+        }
+        if (filters.dueDateFrom) {
+          query = query.gte("due_date", filters.dueDateFrom)
+        }
+        if (filters.dueDateTo) {
+          query = query.lte("due_date", filters.dueDateTo)
+        }
+        if (filters.searchQuery) {
+          query = query.ilike("name", `%${filters.searchQuery}%`)
+        }
+      }
+
+      const result = await query
+      
+      // Convert snake_case to camelCase for frontend
+      if (result.data) {
+        result.data = result.data.map(task => ({
+          id: task.id,
+          name: task.name,
+          completed: task.completed,
+          position: task.position,
+          estimatedPomodoros: task.estimated_pomodoros,
+          actualPomodoros: task.actual_pomodoros,
+          createdAt: task.created_at,
+          completedAt: task.completed_at,
+          category: task.category,
+          priority: task.priority,
+          dueDate: task.due_date,
+          notes: task.notes,
+          isArchived: task.is_archived,
+          parentTaskId: task.parent_task_id
+        }))
+      }
+      
+      return result
     },
+
+    // Archive/unarchive methods
+    async archive(userId: string, taskId: number) {
+      const supabase = getSupabaseClient()
+      return supabase.from("tasks").update({ is_archived: true }).eq("id", taskId).eq("user_id", userId)
+    },
+
+    async unarchive(userId: string, taskId: number) {
+      const supabase = getSupabaseClient()
+      return supabase.from("tasks").update({ is_archived: false }).eq("id", taskId).eq("user_id", userId)
+    },
+
+    // Get available categories
+    async getCategories(userId: string) {
+      const supabase = getSupabaseClient()
+      const result = await supabase
+        .from("tasks")
+        .select("category")
+        .eq("user_id", userId)
+        .not("category", "is", null)
+        
+      if (result.data) {
+        const uniqueCategories = [...new Set(result.data.map(item => item.category))]
+        return { data: uniqueCategories, error: null }
+      }
+      
+      return result
+    },
+
+    // Get subtasks
+    async getSubtasks(userId: string, parentId: number) {
+      const supabase = getSupabaseClient()
+      return supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("parent_task_id", parentId)
+        .order("position", { ascending: true })
+    },
+
+    // Existing methods (keeping them as-is)
     async completeTask(userId: string, taskId: number) {
       const supabase = getSupabaseClient()
       return supabase.from("tasks").update({ 
@@ -63,6 +204,7 @@ export const pomodoroService = {
         completed_at: new Date().toISOString()
       }).eq("id", taskId).eq("user_id", userId)
     },
+
     async uncompleteTask(userId: string, taskId: number) {
       const supabase = getSupabaseClient()
       return supabase.from("tasks").update({ 
@@ -70,67 +212,58 @@ export const pomodoroService = {
         completed_at: null
       }).eq("id", taskId).eq("user_id", userId)
     },
+
     async toggleTaskCompletion(userId: string, taskId: number) {
       const supabase = getSupabaseClient()
-      // First get current state
-      const { data: task } = await supabase
+      
+      // Get current task state
+      const { data: task, error: fetchError } = await supabase
         .from("tasks")
         .select("completed")
         .eq("id", taskId)
         .eq("user_id", userId)
         .single()
 
-      if (!task) throw new Error("Task not found")
+      if (fetchError || !task) return { error: fetchError }
 
-      if (!task.completed) {
-        return this.completeTask(userId, taskId)
-      } else {
-        return this.uncompleteTask(userId, taskId)
-      }
+      // Toggle completion
+      const newCompleted = !task.completed
+      return supabase.from("tasks").update({ 
+        completed: newCompleted,
+        completed_at: newCompleted ? new Date().toISOString() : null
+      }).eq("id", taskId).eq("user_id", userId)
     },
+
     async incrementPomodoros(taskId: number) {
       const supabase = getSupabaseClient()
-      return supabase.rpc("increment_pomodoros", { task_id_param: taskId })
+      return supabase.rpc('increment_pomodoros', { task_id_param: taskId })
     },
+
     async getTaskStats(userId: string) {
       const supabase = getSupabaseClient()
-      const { data, error } = await supabase.rpc("get_average_pomodoros_per_task", { 
+      const result = await supabase.rpc('get_average_pomodoros_per_task', { 
         user_id_param: userId 
       })
       
-      if (error) throw error
-      
-      const stats = data?.[0] || {
-        total_tasks: 0,
-        completed_tasks: 0,
-        total_pomodoros: 0,
-        avg_pomodoros_per_task: 0
+      if (result.data && result.data.length > 0) {
+        return result.data[0]
       }
       
       return {
-        totalTasks: Number(stats.total_tasks),
-        completedTasks: Number(stats.completed_tasks),
-        totalPomodoros: Number(stats.total_pomodoros),
-        avgPomodorosPerTask: Number(stats.avg_pomodoros_per_task)
+        totalTasks: 0,
+        completedTasks: 0,
+        totalPomodoros: 0,
+        avgPomodorosPerTask: 0
       }
     },
-    async getCompletionStats(userId: string) {
+
+    async getTaskProgress(userId: string) {
       const supabase = getSupabaseClient()
-      const today = new Date().toISOString().split('T')[0]
-      
-      // Tasks completed today
-      const { data: todayCompleted } = await supabase
-        .from("tasks")
-        .select("*")
+      const { data: allTasks } = await supabase.from("tasks").select("*").eq("user_id", userId)
+      const { data: todayCompleted } = await supabase.from("tasks").select("*")
         .eq("user_id", userId)
         .eq("completed", true)
-        .gte("completed_at", today)
-
-      // All tasks for completion rate
-      const { data: allTasks } = await supabase
-        .from("tasks")
-        .select("completed")
-        .eq("user_id", userId)
+        .gte("completed_at", new Date().toISOString().split('T')[0])
 
       const completionRate = allTasks && allTasks.length > 0 
         ? allTasks.filter(t => t.completed).length / allTasks.length 
@@ -142,6 +275,7 @@ export const pomodoroService = {
       }
     }
   },
+
   sessions: {
     async create(userId: string, session: Omit<Session, "completedAt" | "date"> & { date: string }) {
       const supabase = getSupabaseClient()
@@ -153,10 +287,12 @@ export const pomodoroService = {
         date: session.date
       })
     },
+
     async list(userId: string, limit = 100) {
       const supabase = getSupabaseClient()
       return supabase.from("sessions").select("*").eq("user_id", userId).order("completed_at", { ascending: false }).limit(limit)
     },
+
     async saveCompletedSession(userId: string, taskId: number | null, taskName: string, duration: number) {
       const supabase = getSupabaseClient()
       const today = new Date().toISOString().split('T')[0]
@@ -171,11 +307,13 @@ export const pomodoroService = {
       })
     }
   },
+
   settings: {
     async get(userId: string) {
       const supabase = getSupabaseClient()
       return supabase.from("settings").select("*").eq("user_id", userId).single()
     },
+
     async upsert(userId: string, settings: Settings) {
       const supabase = getSupabaseClient()
       const settingsData = {
@@ -189,6 +327,7 @@ export const pomodoroService = {
         auto_start_breaks: settings.autoStartBreaks,
         auto_start_work: settings.autoStartWork,
         timer_display_mode: settings.timerDisplayMode,
+        notifications_enabled: settings.notificationsEnabled,
       }
       
       console.log("Upserting settings:", settingsData)
@@ -204,8 +343,6 @@ export const pomodoroService = {
       
       if (result.error) {
         console.error("Settings upsert error:", result.error)
-        console.error("Error details:", result.error.details)
-        console.error("Error hint:", result.error.hint)
       }
       
       return result

@@ -30,6 +30,31 @@ export function usePomodoroLogic() {
         : settings.longBreakDuration * 60,
     sessionType,
     onComplete: async () => {
+      // Play sound notification
+      if (settings.soundEnabled) {
+        playSound(sessionType);
+      }
+      
+      // Send browser notification
+      if (settings.notificationsEnabled && areNotificationsEnabled()) {
+        const taskName = sessionType === "work" ? (currentTask || "Work Session") : 
+                        sessionType === "shortBreak" ? "Short Break" : "Long Break";
+        
+        if (sessionType === "work") {
+          sendNotification("🍅 Work Session Complete!", {
+            body: `Great job on "${taskName}"! Time for a break.`,
+            icon: "/placeholder-logo.png",
+            tag: "pomodoro-timer"
+          });
+        } else {
+          sendNotification("⏰ Break Time Over!", {
+            body: "Ready to get back to work?",
+            icon: "/placeholder-logo.png", 
+            tag: "pomodoro-timer"
+          });
+        }
+      }
+      
       // Create session when timer completes
       const sessionDuration = sessionType === "work" 
         ? settings.workDuration 
@@ -110,7 +135,7 @@ export function usePomodoroLogic() {
 
   // Audio/Notifications
   const audioHook = useAudio({ soundEnabled: settings.soundEnabled, soundVolume: settings.soundVolume });
-  const { testSound, requestNotificationPermission, areNotificationsEnabled } = audioHook;
+  const { testSound, requestNotificationPermission, areNotificationsEnabled, sendNotification, playSound } = audioHook;
 
   // Data loading state
   const [dataLoading, setDataLoading] = useState(false);
@@ -392,6 +417,8 @@ export function usePomodoroLogic() {
     testSound,
     requestNotificationPermission,
     areNotificationsEnabled,
+    sendNotification,
+    playSound,
 
     // Shortcuts info
     shortcuts,
