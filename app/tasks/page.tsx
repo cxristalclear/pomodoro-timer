@@ -2,12 +2,11 @@
 
 import type React from "react"
 import { X, Plus, Trash2, Circle, CheckCircle, Edit2, Check, X as XIcon } from "lucide-react"
-import { PomodoroProvider } from "@/components/PomodoroProvider"
-import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import type { Task } from "@/contexts/PomodoroContext"
+import { usePomodoro } from "@/contexts/PomodoroContext"
 
 /**
  * Task management page component
@@ -447,9 +446,7 @@ function TasksPageContent() {
 export default function TasksPage() {
   return (
     <ProtectedRoute>
-      <PomodoroProvider>
-        <TasksPageContent />
-      </PomodoroProvider>
+      <TasksPageContent />
     </ProtectedRoute>
   )
 }
