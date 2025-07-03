@@ -39,6 +39,7 @@ export interface Settings {
   sessionsUntilLongBreak: number
   soundEnabled: boolean
   soundVolume: number
+  notificationsEnabled: boolean
   autoStartBreaks: boolean
   autoStartWork: boolean
   timerDisplayMode?: "digital" | "analog" | "countdown"
@@ -144,6 +145,12 @@ export interface PomodoroContextType {
   // Settings actions
   setSettings: (settings: Settings | ((prev: Settings) => Settings)) => void
   updateSettings: (settings: Settings | ((prev: Settings) => Settings)) => Promise<void>
+  
+  // Audio/Notifications
+  testSound: () => void
+  requestNotificationPermission: () => void
+  areNotificationsEnabled: () => boolean
+  sendNotification: (title: string, options?: NotificationOptions) => void
 }
 
 export const PomodoroContext = createContext<PomodoroContextType | undefined>(undefined)

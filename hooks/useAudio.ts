@@ -52,13 +52,34 @@ export function useAudio({ soundEnabled, soundVolume }: { soundEnabled: boolean;
 
   // Check if notifications are enabled
   const areNotificationsEnabled = () => {
-    return notificationPermissionRef.current
+    if (typeof window !== "undefined" && "Notification" in window) {
+      const actualPermission = Notification.permission === "granted";
+      // Update our ref if it's out of sync
+      if (actualPermission !== notificationPermissionRef.current) {
+        notificationPermissionRef.current = actualPermission;
+      }
+      return actualPermission;
+    }
+    return false;
   }
 
   // Send browser notification
   const sendNotification = (title: string, options?: NotificationOptions) => {
-    if (typeof window !== "undefined" && notificationPermissionRef.current) {
-      new Notification(title, options)
+    if (typeof window === "undefined") {
+      return;
+    }
+    
+    if (!("Notification" in window)) {
+      console.warn('Browser does not support notifications');
+      return;
+    }
+    
+    if (Notification.permission === "granted") {
+      try {
+        new Notification(title, options);
+      } catch (error) {
+        console.error('Error creating notification:', error);
+      }
     }
   }
 

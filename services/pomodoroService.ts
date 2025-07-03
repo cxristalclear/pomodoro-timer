@@ -324,6 +324,7 @@ export const pomodoroService = {
         sessions_until_long_break: settings.sessionsUntilLongBreak,
         sound_enabled: settings.soundEnabled,
         sound_volume: settings.soundVolume,
+        notifications_enabled: settings.notificationsEnabled,
         auto_start_breaks: settings.autoStartBreaks,
         auto_start_work: settings.autoStartWork,
         timer_display_mode: settings.timerDisplayMode,

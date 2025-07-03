@@ -51,6 +51,27 @@ export function usePomodoroLogic() {
         await incrementTaskPomodoros(selectedTaskId);
       }
       
+      // Play completion sound
+      playSound(sessionType);
+      
+      // Send browser notification
+      if (settings.notificationsEnabled && areNotificationsEnabled()) {
+        const notificationTitle = sessionType === "work" 
+          ? "Work Session Complete!" 
+          : sessionType === "shortBreak" 
+            ? "Short Break Complete!" 
+            : "Long Break Complete!";
+        
+        const notificationBody = sessionType === "work" 
+          ? `Great job! Time for a ${sessionCount % settings.sessionsUntilLongBreak === 0 ? "long" : "short"} break.`
+          : "Ready to get back to work?";
+        
+        sendNotification(notificationTitle, { 
+          body: notificationBody,
+          icon: '/placeholder-logo.png'
+        });
+      }
+      
       // Auto-start next session if enabled
       if (sessionType === "work" && settings.autoStartBreaks) {
         // Move to break
@@ -111,7 +132,7 @@ export function usePomodoroLogic() {
 
   // Audio/Notifications
   const audioHook = useAudio({ soundEnabled: settings.soundEnabled, soundVolume: settings.soundVolume });
-  const { testSound, requestNotificationPermission, areNotificationsEnabled } = audioHook;
+  const { testSound, requestNotificationPermission, areNotificationsEnabled, sendNotification, playSound } = audioHook;
 
   // Data loading state
   const [dataLoading, setDataLoading] = useState(false);
@@ -580,6 +601,7 @@ export function usePomodoroLogic() {
     testSound,
     requestNotificationPermission,
     areNotificationsEnabled,
+    sendNotification,
 
     // Shortcuts info
     shortcuts,

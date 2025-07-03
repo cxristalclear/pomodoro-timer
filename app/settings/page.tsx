@@ -232,6 +232,21 @@ function SettingsPageContent() {
               />
               <div className="text-xs text-gray-500 mt-1">{Math.round(localSettings.soundVolume * 100)}%</div>
             </div>
+
+            <ToggleButton
+              enabled={localSettings.notificationsEnabled}
+              onChange={() => setLocalSettings((prev) => ({ ...prev, notificationsEnabled: !prev.notificationsEnabled }))}
+              label="Browser Notifications"
+            />
+
+            <div className="mt-2">
+              <Link
+                href="/test-notifications"
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                Test notifications & troubleshoot issues →
+              </Link>
+            </div>
           </div>
 
           {/* Auto-start settings */}
