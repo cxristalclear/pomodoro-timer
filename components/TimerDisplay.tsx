@@ -165,19 +165,23 @@ export const TimerDisplay: React.FC = () => {
         <div className="flex items-center gap-8">
           <button
             onClick={toggleTimer}
-            className="text-gray-600 hover:text-white transition-colors text-2xl"
+            className="text-gray-600 hover:text-white transition-colors"
             title={isRunning ? "Pause" : "Start"}
             aria-label={isRunning ? "Pause timer" : "Start timer"}
           >
-            {isRunning ? "||" : "▶"}
+            {isRunning ? (
+              <span className="material-symbols-outlined text-3xl">pause</span>
+            ) : (
+              <span className="material-symbols-outlined text-3xl">play_arrow</span>
+            )}
           </button>
           <button
             onClick={resetTimer}
-            className="text-gray-600 hover:text-white transition-colors text-xl"
+            className="text-gray-600 hover:text-white transition-colors"
             title="Reset Timer"
             aria-label="Reset timer"
           >
-            ↺
+            <span className="material-symbols-outlined text-3xl">replay</span>
           </button>
         </div>
 
