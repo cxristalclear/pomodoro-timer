@@ -18,17 +18,8 @@ export function useTasks(userId: string | undefined) {
       }
       if (data) {
         console.log("Loaded tasks from DB:", data)
-        setTasks(
-          data.map((t: any) => ({
-            id: t.id,
-            name: t.name,
-            completed: t.completed,
-            estimatedPomodoros: t.estimated_pomodoros || 1,
-            actualPomodoros: t.actual_pomodoros || 0,
-            createdAt: t.created_at,
-            completedAt: t.completed_at,
-          }))
-        )
+        // The enhanced service layer already converts snake_case to camelCase
+        setTasks(data)
       }
     } catch (error) {
       console.error("Error loading tasks:", error)
@@ -40,7 +31,12 @@ export function useTasks(userId: string | undefined) {
     if (newTaskInput.trim() && userId) {
       console.log("Adding task:", { newTaskInput: newTaskInput.trim(), userId, tasksLength: tasks.length })
       try {
-        const { data, error } = await pomodoroService.tasks.create(userId, newTaskInput.trim(), tasks.length)
+        // Use the new enhanced service layer signature
+        const { data, error } = await pomodoroService.tasks.create(userId, {
+          name: newTaskInput.trim(),
+          position: tasks.length,
+          estimatedPomodoros: 1
+        })
         console.log("Add task response:", { data, error })
         if (error) {
           console.error("Error adding task:", error)
@@ -53,10 +49,18 @@ export function useTasks(userId: string | undefined) {
           const newTask: Task = {
             id: data.id,
             name: data.name,
-            completed: false,
+            completed: data.completed || false,
+            position: data.position,
             estimatedPomodoros: data.estimated_pomodoros || 1,
             actualPomodoros: data.actual_pomodoros || 0,
             createdAt: data.created_at,
+            completedAt: data.completed_at,
+            category: data.category,
+            priority: data.priority,
+            dueDate: data.due_date,
+            notes: data.notes,
+            isArchived: data.is_archived || false,
+            parentTaskId: data.parent_task_id
           }
           console.log("New task object:", newTask)
           setTasks((prev) => [...prev, newTask])

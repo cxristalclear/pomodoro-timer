@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { X, Save, Check } from "lucide-react"
-import { PomodoroProvider } from "@/components/PomodoroProvider"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Link from "next/link"
@@ -342,9 +341,7 @@ function SettingsPageContent() {
 export default function SettingsPage() {
   return (
     <ProtectedRoute>
-      <PomodoroProvider>
-        <SettingsPageContent />
-      </PomodoroProvider>
+      <SettingsPageContent />
     </ProtectedRoute>
   )
 }

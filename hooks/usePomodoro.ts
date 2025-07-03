@@ -8,6 +8,7 @@ import { useAudio } from "./useAudio";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 import { useEffect, useState, useCallback } from "react";
 import type { Task } from "@/contexts/PomodoroContext";
+import { pomodoroService } from "@/services/pomodoroService";
 
 export function usePomodoroLogic() {
   const { user, loading: authLoading } = useAuth();
@@ -336,6 +337,167 @@ export function usePomodoroLogic() {
     setSettings((prev) => ({ ...prev, soundEnabled: !prev.soundEnabled }));
   }, [setSettings]);
 
+  // Enhanced task state
+  const [taskFilters, setTaskFilters] = useState({});
+  const [selectedTasks, setSelectedTasks] = useState<number[]>([]);
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+
+  // Enhanced task methods
+  const addTaskWithDetails = useCallback(async (taskDetails: Partial<Task>) => {
+    if (!userId) return;
+    try {
+      const { data, error } = await pomodoroService.tasks.create(userId, {
+        name: taskDetails.name || "New Task",
+        position: tasks.length,
+        estimatedPomodoros: taskDetails.estimatedPomodoros || 1,
+        category: taskDetails.category,
+        priority: taskDetails.priority,
+        dueDate: taskDetails.dueDate,
+        notes: taskDetails.notes,
+        parentTaskId: taskDetails.parentTaskId
+      });
+      if (error) {
+        console.error("Error adding task with details:", error);
+        return;
+      }
+      if (data) {
+        const newTask: Task = {
+          id: data.id,
+          name: data.name,
+          completed: data.completed || false,
+          position: data.position,
+          estimatedPomodoros: data.estimated_pomodoros || 1,
+          actualPomodoros: data.actual_pomodoros || 0,
+          createdAt: data.created_at,
+          completedAt: data.completed_at,
+          category: data.category,
+          priority: data.priority,
+          dueDate: data.due_date,
+          notes: data.notes,
+          isArchived: data.is_archived || false,
+          parentTaskId: data.parent_task_id
+        };
+        setTasks((prev) => [...prev, newTask]);
+      }
+    } catch (error) {
+      console.error("Exception adding task with details:", error);
+    }
+  }, [userId, tasks.length, setTasks]);
+
+  const bulkUpdateTasks = useCallback(async (bulkUpdate: any) => {
+    if (!userId) return;
+    try {
+      const { error } = await pomodoroService.tasks.bulkUpdate(userId, bulkUpdate.taskIds, bulkUpdate.updates);
+      if (error) {
+        console.error("Error bulk updating tasks:", error);
+        return;
+      }
+      // Update local state
+      setTasks((prev) =>
+        prev.map((task) =>
+          bulkUpdate.taskIds.includes(task.id)
+            ? { ...task, ...bulkUpdate.updates }
+            : task
+        )
+      );
+    } catch (error) {
+      console.error("Exception bulk updating tasks:", error);
+    }
+  }, [userId, setTasks]);
+
+  const archiveTask = useCallback(async (taskId: number) => {
+    if (!userId) return;
+    try {
+      const { error } = await pomodoroService.tasks.archive(userId, taskId);
+      if (error) {
+        console.error("Error archiving task:", error);
+        return;
+      }
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, isArchived: true } : task
+        )
+      );
+    } catch (error) {
+      console.error("Exception archiving task:", error);
+    }
+  }, [userId, setTasks]);
+
+  const unarchiveTask = useCallback(async (taskId: number) => {
+    if (!userId) return;
+    try {
+      const { error } = await pomodoroService.tasks.unarchive(userId, taskId);
+      if (error) {
+        console.error("Error unarchiving task:", error);
+        return;
+      }
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, isArchived: false } : task
+        )
+      );
+    } catch (error) {
+      console.error("Exception unarchiving task:", error);
+    }
+  }, [userId, setTasks]);
+
+  const searchTasks = useCallback((query: string) => {
+    setTaskFilters((prev: any) => ({ ...prev, searchQuery: query }));
+  }, []);
+
+  const filterTasks = useCallback((filters: any) => {
+    setTaskFilters(filters);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setTaskFilters({});
+  }, []);
+
+  const toggleTaskSelection = useCallback((taskId: number) => {
+    setSelectedTasks((prev) =>
+      prev.includes(taskId)
+        ? prev.filter((id) => id !== taskId)
+        : [...prev, taskId]
+    );
+  }, []);
+
+  const selectAllTasks = useCallback(() => {
+    setSelectedTasks(tasks.map((task) => task.id));
+  }, [tasks]);
+
+  const clearTaskSelection = useCallback(() => {
+    setSelectedTasks([]);
+  }, []);
+
+  const toggleBulkEditMode = useCallback(() => {
+    setBulkEditMode((prev) => !prev);
+    if (bulkEditMode) {
+      clearTaskSelection();
+    }
+  }, [bulkEditMode, clearTaskSelection]);
+
+  const getAvailableCategories = useCallback(() => {
+    const categories = [...new Set(tasks.map((task) => task.category).filter(Boolean))];
+    return categories as string[];
+  }, [tasks]);
+
+  const createCategory = useCallback((category: string) => {
+    // This could be implemented to save categories to a separate table
+    // For now, categories are just created when assigned to tasks
+    console.log("Creating category:", category);
+  }, []);
+
+  const getSubtasks = useCallback((parentId: number) => {
+    return tasks.filter((task) => task.parentTaskId === parentId);
+  }, [tasks]);
+
+  const createSubtask = useCallback(async (parentId: number, taskDetails: Partial<Task>) => {
+    await addTaskWithDetails({
+      ...taskDetails,
+      parentTaskId: parentId
+    });
+  }, [addTaskWithDetails]);
+
   return {
     // Timer
     time,
@@ -364,6 +526,32 @@ export function usePomodoroLogic() {
     incrementTaskPomodoros,
     getTaskStats,
     loadTasks,
+
+    // Enhanced task state
+    taskFilters,
+    selectedTasks,
+    bulkEditMode,
+
+    // Enhanced task actions
+    addTaskWithDetails,
+    bulkUpdateTasks,
+    archiveTask,
+    unarchiveTask,
+    searchTasks,
+    filterTasks,
+    clearFilters,
+    toggleTaskSelection,
+    selectAllTasks,
+    clearTaskSelection,
+    toggleBulkEditMode,
+
+    // Category management
+    getAvailableCategories,
+    createCategory,
+
+    // Task hierarchy
+    getSubtasks,
+    createSubtask,
 
     // Sessions
     sessions,
