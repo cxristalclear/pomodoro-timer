@@ -144,7 +144,6 @@ export const TimerDisplay: React.FC = () => {
             session {Math.ceil(sessionCount / settings.sessionsUntilLongBreak)}.
             {((sessionCount - 1) % settings.sessionsUntilLongBreak) + 1}
           </span>
-          <span className="text-gray-500 text-sm">[{completedTasks} completed tasks]</span>
         </div>
         <Link
           href="/menu"
