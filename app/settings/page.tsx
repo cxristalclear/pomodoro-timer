@@ -1,28 +1,44 @@
 "use client"
 
 import type React from "react"
-import { X, Save, Check, Clock, Volume2, Play, Monitor, Bell, Zap, Timer, Settings as SettingsIcon, Settings } from "lucide-react"
+import { X, ChevronDown, ChevronRight } from "lucide-react"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
-import { BreadcrumbNav, useBreadcrumbs } from "@/components/BreadcrumbNav"
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
 
 /**
- * Enhanced Settings page component with better organization and visual design
+ * Minimal Settings page with collapsible sections
  */
 function SettingsPageContent() {
-  const { settings, setSettings, updateSettings, dataLoading } = usePomodoro()
+  const { 
+    settings, 
+    updateSettings, 
+    dataLoading, 
+    tasks, 
+    deleteTask, 
+    deleteSessionsByTaskId,
+    sessions 
+  } = usePomodoro()
   const { user } = useAuth()
-  const pathname = usePathname()
-  const breadcrumbs = useBreadcrumbs(pathname)
+  
   const [localSettings, setLocalSettings] = useState(settings)
   const [hasChanges, setHasChanges] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    timer: true,
+    audio: false,
+    automation: false,
+    display: false,
+    account: false,
+    notifications: false,
+    data: false
+  })
 
   // Update local settings when global settings change
   useEffect(() => {
@@ -66,6 +82,13 @@ function SettingsPageContent() {
   }
 
   /**
+   * Toggle section open/closed
+   */
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }
+
+  /**
    * Handle keyboard shortcuts
    */
   useEffect(() => {
@@ -81,30 +104,28 @@ function SettingsPageContent() {
   }, [hasChanges])
 
   /**
-   * Enhanced toggle component
+   * Simple toggle component
    */
-  const EnhancedToggle: React.FC<{
+  const Toggle: React.FC<{
     enabled: boolean
     onChange: () => void
     label: string
     description?: string
   }> = ({ enabled, onChange, label, description }) => (
-    <div className="flex items-center justify-between p-4 hover:bg-gray-800/30 rounded-lg transition-colors">
+    <div className="flex items-center justify-between py-3">
       <div className="flex-1">
-        <div className="text-gray-200 font-medium">{label}</div>
-        {description && <div className="text-gray-400 text-sm mt-1">{description}</div>}
+        <div className="text-gray-300">{label}</div>
+        {description && <div className="text-gray-500 text-sm mt-1">{description}</div>}
       </div>
       <button
         onClick={onChange}
-        className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
-          enabled 
-            ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25' 
-            : 'bg-gray-600'
+        className={`relative w-10 h-6 rounded-full transition-colors ${
+          enabled ? 'bg-blue-600' : 'bg-gray-600'
         }`}
       >
         <div
-          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all duration-300 ${
-            enabled ? 'left-6 shadow-lg' : 'left-0.5'
+          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+            enabled ? 'translate-x-4' : 'translate-x-0.5'
           }`}
         />
       </button>
@@ -112,9 +133,9 @@ function SettingsPageContent() {
   )
 
   /**
-   * Enhanced input component
+   * Simple input component
    */
-  const EnhancedInput: React.FC<{
+  const NumberInput: React.FC<{
     value: number
     onChange: (value: number) => void
     label: string
@@ -122,119 +143,164 @@ function SettingsPageContent() {
     min?: number
     max?: number
   }> = ({ value, onChange, label, suffix, min = 1, max = 120 }) => (
-    <div className="space-y-2">
-      <label className="text-gray-200 font-medium">{label}</label>
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between py-3">
+      <div>
+        <div className="text-gray-300">{label}</div>
+      </div>
+      <div className="flex items-center gap-2">
         <input
           type="number"
           value={value}
           onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))}
           min={min}
           max={max}
-          className="bg-gray-800/50 border border-gray-600/50 px-4 py-3 rounded-lg text-white font-medium text-center w-20 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+          className="bg-gray-800 border border-gray-600 px-3 py-1 rounded text-white text-center w-16 focus:border-blue-500 transition-colors"
         />
-        <span className="text-gray-400 text-sm">{suffix}</span>
+        <span className="text-gray-500 text-sm">{suffix}</span>
       </div>
     </div>
   )
 
+  /**
+   * Collapsible section component
+   */
+  const Section: React.FC<{
+    id: string
+    title: string
+    children: React.ReactNode
+  }> = ({ id, title, children }) => (
+    <div className="border-b border-gray-800">
+      <button
+        onClick={() => toggleSection(id)}
+        className="w-full flex items-center justify-between py-4 text-left hover:bg-gray-900/50 transition-colors"
+      >
+        <h2 className="text-lg font-light text-gray-200">{title}</h2>
+        {openSections[id] ? (
+          <ChevronDown className="text-gray-400" size={20} />
+        ) : (
+          <ChevronRight className="text-gray-400" size={20} />
+        )}
+      </button>
+      {openSections[id] && (
+        <div className="pb-4 pl-4">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+
+  /**
+   * Data management functions
+   */
+  const deleteTaskCompletely = async (taskId: number, taskName: string) => {
+    try {
+      console.log("🗑️ Completely deleting task:", taskName)
+      await deleteSessionsByTaskId(taskId)
+      deleteTask(taskId)
+      console.log("✅ Task and sessions deleted successfully")
+    } catch (error) {
+      console.error("❌ Error deleting task completely:", error)
+    }
+  }
+
+  const clearAllCompletedTasks = async () => {
+    const completedTasks = tasks.filter(t => t.completed)
+    if (completedTasks.length === 0) {
+      alert("No completed tasks to clear")
+      return
+    }
+    
+    if (!window.confirm(`Delete ${completedTasks.length} completed tasks and all their session data?`)) {
+      return
+    }
+    
+    try {
+      console.log("🗑️ Clearing all completed tasks and sessions")
+      await Promise.all(
+        completedTasks.map(task => deleteSessionsByTaskId(task.id))
+      )
+      completedTasks.forEach(task => deleteTask(task.id))
+      console.log("✅ All completed tasks and sessions cleared")
+    } catch (error) {
+      console.error("❌ Error clearing completed tasks:", error)
+    }
+  }
+
+  const clearAllSessions = async () => {
+    if (sessions.length === 0) {
+      alert("No sessions to clear")
+      return
+    }
+    
+    if (!window.confirm(`Delete all ${sessions.length} session records? This will not affect your tasks.`)) {
+      return
+    }
+    
+    try {
+      console.log("🗑️ Clearing all sessions")
+      // This would need to be implemented in the service/hook
+      alert("Session clearing not yet implemented")
+    } catch (error) {
+      console.error("❌ Error clearing sessions:", error)
+    }
+  }
+
   if (dataLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-xl">Loading settings...</div>
+        <div className="text-xl font-light">Loading settings...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
-      {/* Enhanced header */}
-      <header className="border-b border-gray-800 bg-black/50 backdrop-blur-sm">
-        <div className="flex justify-between items-center p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-800/50 rounded-lg">
-              <SettingsIcon className="text-blue-400" size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold">Settings</h1>
-              <p className="text-gray-400 text-sm">Customize your Pomodoro experience</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Save/Reset buttons */}
-            {hasChanges && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleReset}
-                  className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {saving ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      Saving...
-                    </>
-                  ) : saved ? (
-                    <>
-                      <Check size={16} />
-                      Saved!
-                    </>
-                  ) : (
-                    <>
-                      <Save size={16} />
-                      Save
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-            
-            <Link
-              href="/"
-              className="text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
-              aria-label="Back to timer"
-            >
-              <X size={24} />
-            </Link>
-          </div>
+    <div className="min-h-screen bg-black text-white">
+      {/* Minimal header */}
+      <header className="flex justify-between items-center p-6 border-b border-gray-900">
+        <div>
+          <h1 className="text-xl font-light">Settings</h1>
+          <p className="text-gray-500 text-sm mt-1">Customize your experience</p>
         </div>
-        
-        {/* Breadcrumb */}
-        <div className="px-6 pb-4">
-          <BreadcrumbNav items={breadcrumbs} />
+        <div className="flex items-center gap-3">
+          {hasChanges && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleReset}
+                className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
+              >
+                Reset
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition-colors disabled:opacity-50"
+              >
+                {saving ? "Saving..." : saved ? "Saved!" : "Save"}
+              </button>
+            </div>
+          )}
+          <Link
+            href="/"
+            className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
+          >
+            <X size={20} />
+          </Link>
         </div>
       </header>
 
-      <div className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8">
+      <div className="max-w-2xl mx-auto p-6">
         
         {/* Error message */}
         {error && (
-          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-red-200">
+          <div className="bg-red-900/20 border border-red-500/30 rounded p-3 text-red-200 mb-6 text-sm">
             {error}
           </div>
         )}
 
         {/* Timer Duration Settings */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-blue-500/20 rounded-lg">
-              <Timer className="text-blue-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Timer Durations</h2>
-              <p className="text-gray-400 text-sm">Set your focus and break session lengths</p>
-            </div>
-          </div>
-          
-          <div className="grid gap-6">
-            <EnhancedInput
+        <Section id="timer" title="Timer Durations">
+          <div className="space-y-2">
+            <NumberInput
               value={localSettings.workDuration}
               onChange={(value) => setLocalSettings(prev => ({ ...prev, workDuration: value }))}
               label="Work Duration"
@@ -242,8 +308,7 @@ function SettingsPageContent() {
               min={1}
               max={120}
             />
-            
-            <EnhancedInput
+            <NumberInput
               value={localSettings.breakDuration}
               onChange={(value) => setLocalSettings(prev => ({ ...prev, breakDuration: value }))}
               label="Short Break Duration"
@@ -251,8 +316,7 @@ function SettingsPageContent() {
               min={1}
               max={30}
             />
-            
-            <EnhancedInput
+            <NumberInput
               value={localSettings.longBreakDuration}
               onChange={(value) => setLocalSettings(prev => ({ ...prev, longBreakDuration: value }))}
               label="Long Break Duration"
@@ -260,8 +324,7 @@ function SettingsPageContent() {
               min={1}
               max={60}
             />
-            
-            <EnhancedInput
+            <NumberInput
               value={localSettings.sessionsUntilLongBreak}
               onChange={(value) => setLocalSettings(prev => ({ ...prev, sessionsUntilLongBreak: value }))}
               label="Sessions Until Long Break"
@@ -270,180 +333,95 @@ function SettingsPageContent() {
               max={10}
             />
           </div>
-        </section>
+        </Section>
 
-        {/* Sound & Notifications */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-green-500/20 rounded-lg">
-              <Volume2 className="text-green-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Audio & Alerts</h2>
-              <p className="text-gray-400 text-sm">Configure sound notifications and volume</p>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <EnhancedToggle
+        {/* Audio Settings */}
+        <Section id="audio" title="Audio">
+          <div className="space-y-2">
+            <Toggle
               enabled={localSettings.soundEnabled}
               onChange={() => setLocalSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
               label="Sound Alerts"
               description="Play notification sounds when sessions complete"
             />
-            
             {localSettings.soundEnabled && (
-              <div className="ml-4 p-4 bg-gray-800/30 rounded-lg">
-                <label className="text-gray-200 font-medium mb-3 block">Volume</label>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={localSettings.soundVolume}
-                    onChange={(e) => setLocalSettings(prev => ({ ...prev, soundVolume: parseFloat(e.target.value) }))}
-                    className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-gray-300 text-sm w-12">
-                    {Math.round(localSettings.soundVolume * 100)}%
-                  </span>
+              <div className="py-3 pl-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300">Volume</span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={localSettings.soundVolume}
+                      onChange={(e) => setLocalSettings(prev => ({ ...prev, soundVolume: parseFloat(e.target.value) }))}
+                      className="w-24"
+                    />
+                    <span className="text-gray-500 text-sm w-8">
+                      {Math.round(localSettings.soundVolume * 100)}%
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-        </section>
+        </Section>
 
         {/* Automation Settings */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-500/20 rounded-lg">
-              <Zap className="text-purple-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Auto-start</h2>
-              <p className="text-gray-400 text-sm">Automatically begin the next session</p>
-            </div>
-          </div>
-          
+        <Section id="automation" title="Auto-start">
           <div className="space-y-2">
-            <EnhancedToggle
+            <Toggle
               enabled={localSettings.autoStartBreaks}
               onChange={() => setLocalSettings(prev => ({ ...prev, autoStartBreaks: !prev.autoStartBreaks }))}
               label="Auto-start Breaks"
               description="Automatically start break sessions after work completes"
             />
-            
-            <EnhancedToggle
+            <Toggle
               enabled={localSettings.autoStartWork}
               onChange={() => setLocalSettings(prev => ({ ...prev, autoStartWork: !prev.autoStartWork }))}
               label="Auto-start Work Sessions"
               description="Automatically start work sessions after breaks complete"
             />
           </div>
-        </section>
+        </Section>
 
         {/* Display Settings */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-orange-500/20 rounded-lg">
-              <Monitor className="text-orange-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Timer Display</h2>
-              <p className="text-gray-400 text-sm">Choose how the timer appears</p>
+        <Section id="display" title="Display">
+          <div className="py-3">
+            <div className="text-gray-300 mb-3">Timer Display Mode</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'countdown' }))}
+                className={`p-3 rounded border transition-colors text-sm ${
+                  localSettings.timerDisplayMode === 'countdown'
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-200'
+                    : 'border-gray-600 bg-gray-800/30 text-gray-300 hover:border-gray-500'
+                }`}
+              >
+                Countdown
+              </button>
+              <button
+                onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'digital' }))}
+                className={`p-3 rounded border transition-colors text-sm ${
+                  localSettings.timerDisplayMode === 'digital'
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-200'
+                    : 'border-gray-600 bg-gray-800/30 text-gray-300 hover:border-gray-500'
+                }`}
+              >
+                Digital
+              </button>
             </div>
           </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'countdown' }))}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                localSettings.timerDisplayMode === 'countdown'
-                  ? 'border-blue-500 bg-blue-500/10 text-blue-200'
-                  : 'border-gray-600 bg-gray-800/30 text-gray-300 hover:border-gray-500'
-              }`}
-            >
-              <Clock className="mx-auto mb-2" size={24} />
-              <div className="font-medium">Countdown</div>
-              <div className="text-xs opacity-75 mt-1">Time remaining</div>
-            </button>
-            
-            <button
-              onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'digital' }))}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                localSettings.timerDisplayMode === 'digital'
-                  ? 'border-blue-500 bg-blue-500/10 text-blue-200'
-                  : 'border-gray-600 bg-gray-800/30 text-gray-300 hover:border-gray-500'
-              }`}
-            >
-              <Timer className="mx-auto mb-2" size={24} />
-              <div className="font-medium">Digital</div>
-              <div className="text-xs opacity-75 mt-1">Classic display</div>
-            </button>
-          </div>
-        </section>
+        </Section>
 
-        {/* Account Management */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-blue-500/20 rounded-lg">
-              <Settings className="text-blue-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Account Management</h2>
-              <p className="text-gray-400 text-sm">Manage your account settings and preferences</p>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
-              <div>
-                <p className="text-gray-300 font-medium">Email Address</p>
-                <p className="text-gray-500 text-sm">{user?.email || 'Not available'}</p>
-              </div>
-              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
-                Change Email
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
-              <div>
-                <p className="text-gray-300 font-medium">Password</p>
-                <p className="text-gray-500 text-sm">Last updated recently</p>
-              </div>
-              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
-                Change Password
-              </button>
-            </div>
-            
-            <div className="border-t border-gray-700/50 pt-4">
-              <button className="text-red-400 hover:text-red-300 text-sm transition-colors">
-                Delete Account
-              </button>
-              <p className="text-gray-500 text-xs mt-1">This action cannot be undone</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Notification Settings */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-yellow-500/20 rounded-lg">
-              <Bell className="text-yellow-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Notifications</h2>
-              <p className="text-gray-400 text-sm">Configure desktop and browser notifications</p>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <EnhancedToggle
+        {/* Notifications */}
+        <Section id="notifications" title="Notifications">
+          <div className="space-y-3">
+            <Toggle
               enabled={Notification.permission === 'granted'}
               onChange={async () => {
                 if (Notification.permission === 'granted') {
-                  // Note: We can't programmatically revoke permissions
                   alert('To disable notifications, please use your browser settings')
                 } else {
                   const permission = await Notification.requestPermission()
@@ -456,13 +434,12 @@ function SettingsPageContent() {
                 }
               }}
               label="Desktop Notifications"
-              description="Get notified when sessions complete, even when the tab is in the background"
+              description="Get notified when sessions complete"
             />
-            
-            <div className="ml-4 p-4 bg-gray-800/30 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300 text-sm">Current Status</span>
-                <span className={`text-xs px-2 py-1 rounded ${
+            <div className="py-2 pl-4 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Status</span>
+                <span className={`px-2 py-1 rounded text-xs ${
                   Notification.permission === 'granted' 
                     ? 'bg-green-500/20 text-green-400' 
                     : Notification.permission === 'denied'
@@ -473,104 +450,103 @@ function SettingsPageContent() {
                    Notification.permission === 'denied' ? 'Blocked' : 'Not Set'}
                 </span>
               </div>
-              
-              {Notification.permission === 'denied' && (
-                <p className="text-gray-500 text-xs">
-                  Notifications are blocked. Please enable them in your browser settings to receive alerts.
-                </p>
-              )}
-              
-              <button 
-                onClick={() => {
-                  if (Notification.permission === 'granted') {
+              {Notification.permission === 'granted' && (
+                <button 
+                  onClick={() => {
                     new Notification('Test Notification', {
                       body: 'This is how notifications will appear!',
                       icon: '/placeholder-logo.png'
                     })
-                  }
-                }}
-                disabled={Notification.permission !== 'granted'}
-                className="mt-2 text-blue-400 hover:text-blue-300 text-xs transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
-              >
-                Test Notification
+                  }}
+                  className="mt-2 text-blue-400 hover:text-blue-300 text-xs transition-colors"
+                >
+                  Test Notification
+                </button>
+              )}
+            </div>
+          </div>
+        </Section>
+
+        {/* Account Management */}
+        <Section id="account" title="Account">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center py-2">
+              <div>
+                <div className="text-gray-300">Email</div>
+                <div className="text-gray-500 text-sm">{user?.email || 'Not available'}</div>
+              </div>
+              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                Change
+              </button>
+            </div>
+            <div className="flex justify-between items-center py-2">
+              <div>
+                <div className="text-gray-300">Password</div>
+                <div className="text-gray-500 text-sm">••••••••</div>
+              </div>
+              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                Change
+              </button>
+            </div>
+            <div className="pt-2 border-t border-gray-800">
+              <button className="text-red-400 hover:text-red-300 text-sm transition-colors">
+                Delete Account
               </button>
             </div>
           </div>
-        </section>
+        </Section>
 
         {/* Data Management */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-500/20 rounded-lg">
-              <Save className="text-purple-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Data Management</h2>
-              <p className="text-gray-400 text-sm">Export, import, and manage your data</p>
-            </div>
-          </div>
-          
+        <Section id="data" title="Data Management">
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
-              <div>
-                <p className="text-gray-300 font-medium">Export Data</p>
-                <p className="text-gray-500 text-sm">Download your tasks and session history</p>
-              </div>
-              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
-                Export JSON
-              </button>
+            <div className="text-gray-400 text-sm mb-4">
+              Clean up your tracking history and manage your data
             </div>
             
-            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
-              <div>
-                <p className="text-gray-300 font-medium">Import Data</p>
-                <p className="text-gray-500 text-sm">Upload a previously exported file</p>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2">
+                <div>
+                  <div className="text-gray-300">Export Data</div>
+                  <div className="text-gray-500 text-sm">Download tasks and sessions as JSON</div>
+                </div>
+                <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                  Export
+                </button>
               </div>
-              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
-                Import JSON
-              </button>
+              
+              <div className="flex justify-between items-center py-2">
+                <div>
+                  <div className="text-gray-300">Import Data</div>
+                  <div className="text-gray-500 text-sm">Upload previously exported file</div>
+                </div>
+                <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                  Import
+                </button>
+              </div>
             </div>
             
-            <div className="border-t border-gray-700/50 pt-4">
-              <button className="text-red-400 hover:text-red-300 text-sm transition-colors">
+            <div className="pt-3 border-t border-gray-800 space-y-3">
+              <button 
+                onClick={clearAllCompletedTasks}
+                className="block text-orange-400 hover:text-orange-300 text-sm transition-colors"
+              >
+                Clear Completed Tasks ({tasks.filter(t => t.completed).length})
+              </button>
+              
+              <button 
+                onClick={clearAllSessions}
+                className="block text-orange-400 hover:text-orange-300 text-sm transition-colors"
+              >
+                Clear Session History ({sessions.length} sessions)
+              </button>
+              
+              <button className="block text-red-400 hover:text-red-300 text-sm transition-colors">
                 Clear All Data
               </button>
-              <p className="text-gray-500 text-xs mt-1">This will delete all tasks and session history</p>
             </div>
           </div>
-        </section>
+        </Section>
 
-        {/* Keyboard shortcuts info */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-gray-500/20 rounded-lg">
-              <Bell className="text-gray-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Keyboard Shortcuts</h2>
-              <p className="text-gray-400 text-sm">Save time with these helpful shortcuts</p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <div className="flex justify-between items-center p-2">
-              <span className="text-gray-300">Save settings</span>
-              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Ctrl+S</kbd>
-            </div>
-            <div className="flex justify-between items-center p-2">
-              <span className="text-gray-300">Start/Pause timer</span>
-              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Space</kbd>
-            </div>
-            <div className="flex justify-between items-center p-2">
-              <span className="text-gray-300">Reset timer</span>
-              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Ctrl+R</kbd>
-            </div>
-            <div className="flex justify-between items-center p-2">
-              <span className="text-gray-300">Go to tasks</span>
-              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Ctrl+T</kbd>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   )

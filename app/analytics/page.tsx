@@ -1,12 +1,10 @@
 "use client"
-import { X, TrendingUp, Clock, Target, Zap, Calendar, BarChart3, Trash2, Check, AlertCircle } from "lucide-react"
+import { X } from "lucide-react"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
-import { BreadcrumbNav, useBreadcrumbs } from "@/components/BreadcrumbNav"
-import { generateCalendarGrid, getIntensityColor, calculateAnalytics, formatTime } from "@/lib/utils"
+import { formatTime } from "@/lib/utils"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
 
 /**
  * Enhanced Analytics page with daily view and minimalist design
@@ -15,14 +13,9 @@ function AnalyticsPageContent() {
   const { 
     sessions, 
     dataLoading, 
-    getTaskStats, 
     loadSessions, 
     tasks, 
-    deleteTask, 
-    setTasks, 
-    toggleTaskCompletion, 
-    loadTasks, 
-    deleteSessionsByTaskId,
+    loadTasks,
     // Current session info
     currentTask,
     selectedTaskId,
@@ -32,16 +25,7 @@ function AnalyticsPageContent() {
     sessionCount,
     settings
   } = usePomodoro()
-  const pathname = usePathname()
-  const breadcrumbs = useBreadcrumbs(pathname)
-  const [taskStats, setTaskStats] = useState({
-    totalTasks: 0,
-    completedTasks: 0,
-    totalPomodoros: 0,
-    avgPomodorosPerTask: 0
-  })
   const [sessionsLoading, setSessionsLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily')
 
   // Load sessions and tasks when component mounts
   useEffect(() => {
@@ -58,130 +42,158 @@ function AnalyticsPageContent() {
     }
   }, [loadSessions, loadTasks])
 
-  // Load task statistics
-  useEffect(() => {
-    const loadTaskStats = async () => {
-      try {
-        const stats = await getTaskStats()
-        setTaskStats(stats)
-      } catch (error) {
-        console.error("Error loading task stats:", error)
-      }
-    }
-
-    loadTaskStats()
-  }, [getTaskStats])
-
   if (dataLoading || sessionsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex items-center justify-center">
-        <div className="text-xl">Loading analytics...</div>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-xl font-light">Loading progress...</div>
       </div>
     )
   }
 
-  const analytics = calculateAnalytics(sessions || [])
-  const calendarGrid = generateCalendarGrid(sessions || [])
-
-  // Generate daily timeline for today
-  const today = new Date().toISOString().split('T')[0]
-  const todaySessions = (sessions || []).filter(s => s.date === today)
-  const sortedTodaySessions = todaySessions.sort((a, b) => (a.completedAt || '').localeCompare(b.completedAt || ''))
-
-  // Generate hourly heatmap using local time
-  const hourlyData = Array.from({length: 24}, (_, i) => {
-    const hour = i.toString().padStart(2, '0')
-    const sessionsInHour = todaySessions.filter(s => {
-      if (!s.completedAt) return false
-      // Convert UTC timestamp to local time
-      const localTime = new Date(s.completedAt)
-      const localHour = localTime.getHours().toString().padStart(2, '0')
-      return localHour === hour
-    }).length
-    return { hour, count: sessionsInHour }
-  })
-
-  // Helper function to format timestamp to local time
-  const formatLocalTime = (utcTimestamp: string) => {
-    const date = new Date(utcTimestamp)
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    })
+  // Calculate minimal progress data
+  const calculateProgressData = () => {
+    const today = new Date().toISOString().split('T')[0]
+    
+    // Today's data
+    const todaySessions = (sessions || []).filter(s => s.date === today && !s.task.includes('Break'))
+    const todayCompletedTasks = tasks.filter(t => 
+      t.completed && t.completedAt && t.completedAt.split('T')[0] === today
+    )
+    
+    // Calculate focus time (exclude breaks)
+    const todayFocusTime = todaySessions.reduce((acc, s) => acc + (s.duration || 0), 0)
+    
+    // Calculate streak
+    const calculateStreak = () => {
+      const dates = [...new Set((sessions || [])
+        .filter(s => !s.task.includes('Break'))
+        .map(s => s.date)
+      )].sort().reverse()
+      
+      let streak = 0
+      const today = new Date().toISOString().split('T')[0]
+      
+      for (let i = 0; i < dates.length; i++) {
+        const expectedDate = new Date()
+        expectedDate.setDate(expectedDate.getDate() - i)
+        const expectedDateStr = expectedDate.toISOString().split('T')[0]
+        
+        if (dates[i] === expectedDateStr) {
+          streak++
+        } else {
+          break
+        }
+      }
+      return streak
+    }
+    
+    return {
+      today: {
+        sessions: todaySessions.length,
+        hours: Math.round(todayFocusTime / 60 * 10) / 10,
+        completed: todayCompletedTasks.length
+      },
+      streak: calculateStreak(),
+      totalSessions: (sessions || []).filter(s => !s.task.includes('Break')).length,
+      totalCompleted: tasks.filter(t => t.completed).length
+    }
   }
 
-  // Function to completely delete a task and its sessions
-  const deleteTaskCompletely = async (taskId: number, taskName: string) => {
-    try {
-      console.log("🗑️ Completely deleting task:", taskName);
-      
-      // Delete associated sessions first
-      await deleteSessionsByTaskId(taskId);
-      
-      // Then delete the task
-      deleteTask(taskId);
-      
-      console.log("✅ Task and sessions deleted successfully");
-    } catch (error) {
-      console.error("❌ Error deleting task completely:", error);
-    }
-  };
-
-  // Function to clear all completed tasks and their sessions
-  const clearAllCompletedTasks = async () => {
-    const completedTasks = tasks.filter(t => t.completed);
-    if (completedTasks.length === 0) return;
+  // Generate GitHub-style activity grid
+  const generateActivityGrid = () => {
+    const today = new Date()
+    const grid = []
     
-    if (!window.confirm(`Delete ${completedTasks.length} completed tasks and all their session data?`)) {
-      return;
+    // Generate last 12 weeks (84 days)
+    for (let i = 83; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(today.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      
+      const daySessions = (sessions || []).filter(s => 
+        s.date === dateStr && !s.task.includes('Break')
+      )
+      
+      // Intensity levels: 0 (none), 1 (1-2), 2 (3-5), 3 (6-8), 4 (9+)
+      let intensity = 0
+      if (daySessions.length >= 9) intensity = 4
+      else if (daySessions.length >= 6) intensity = 3
+      else if (daySessions.length >= 3) intensity = 2
+      else if (daySessions.length >= 1) intensity = 1
+      
+      grid.push({
+        date: dateStr,
+        count: daySessions.length,
+        intensity,
+        day: date.getDay(), // 0 = Sunday
+        week: Math.floor(i / 7)
+      })
     }
     
-    try {
-      console.log("🗑️ Clearing all completed tasks and sessions");
-      
-      // Delete sessions for all completed tasks
-      await Promise.all(
-        completedTasks.map(task => deleteSessionsByTaskId(task.id))
-      );
-      
-      // Delete all completed tasks
-      completedTasks.forEach(task => deleteTask(task.id));
-      
-      console.log("✅ All completed tasks and sessions cleared");
-    } catch (error) {
-      console.error("❌ Error clearing completed tasks:", error);
-    }
-  };
+    return grid
+  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
-      {/* Consistent header with settings page */}
-      <header className="border-b border-gray-800 bg-black/50 backdrop-blur-sm">
-        <div className="flex justify-between items-center p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-800/50 rounded-lg">
-              <BarChart3 className="text-blue-400" size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold">Analytics</h1>
-              <p className="text-gray-400 text-sm">Track your productivity patterns</p>
-            </div>
-          </div>
-          
-          <Link
-            href="/"
-            className="text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
-            aria-label="Back to timer"
-          >
-            <X size={24} />
-          </Link>
+  // Generate accomplishment timeline
+  const generateAccomplishmentTimeline = () => {
+    const last7Days = []
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      
+      const dayTasks = tasks.filter(t => 
+        t.completed && t.completedAt && t.completedAt.split('T')[0] === dateStr
+      )
+      
+      const daySessions = (sessions || []).filter(s => 
+        s.date === dateStr && !s.task.includes('Break')
+      )
+      
+      if (dayTasks.length > 0 || daySessions.length > 0) {
+        last7Days.push({
+          date: dateStr,
+          displayDate: i === 0 ? 'Today' : i === 1 ? 'Yesterday' : 
+                     date.toLocaleDateString('en-US', { weekday: 'long' }),
+          completed: dayTasks,
+          sessions: daySessions.length
+        })
+      }
+    }
+    
+    return last7Days
+  }
+
+  // Get intensity color class
+  const getIntensityColor = (intensity: number) => {
+    switch (intensity) {
+      case 0: return 'bg-gray-900'
+      case 1: return 'bg-blue-900/40'
+      case 2: return 'bg-blue-800/60'
+      case 3: return 'bg-blue-700/80'
+      case 4: return 'bg-blue-600'
+      default: return 'bg-gray-900'
+    }
+  }
+
+  const progressData = calculateProgressData()
+  const activityGrid = generateActivityGrid()
+  const timeline = generateAccomplishmentTimeline()
+
+      return (
+      <div className="min-h-screen bg-black text-white">
+      {/* Minimal header */}
+      <header className="flex justify-between items-center p-6 border-b border-gray-900">
+        <div>
+          <h1 className="text-xl font-light">Progress</h1>
+          <p className="text-gray-500 text-sm mt-1">Your focus journey</p>
         </div>
-        
-        {/* Breadcrumb */}
-        <div className="px-6 pb-4">
-          <BreadcrumbNav items={breadcrumbs} />
-        </div>
+        <Link
+          href="/"
+          className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
+        >
+          <X size={20} />
+        </Link>
       </header>
 
       {/* Current Session Display */}
@@ -277,396 +289,169 @@ function AnalyticsPageContent() {
         </div>
       )}
 
-      <div className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-6">
+      <div className="max-w-4xl mx-auto p-6 space-y-12">
         
-        {/* View Toggle */}
-        <div className="flex justify-center">
-          <div className="bg-gray-800/20 border border-gray-700/30 rounded-lg p-1 flex">
-            <button
-              onClick={() => setViewMode('daily')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                viewMode === 'daily'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800/50'
-              }`}
-            >
-              Daily View
-            </button>
-            <button
-              onClick={() => setViewMode('monthly')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                viewMode === 'monthly'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800/50'
-              }`}
-            >
-              Monthly View
-            </button>
-          </div>
-        </div>
-
-        {viewMode === 'daily' ? (
-          <>
-            {/* Today's Focus Hero Section */}
-            <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Target className="text-blue-400" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-100">Today's Focus</h2>
-                  <p className="text-gray-400 text-sm">Your productivity summary for today</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-blue-400">{analytics.todayCount}</div>
-                  <div className="text-gray-300 text-sm">Sessions Today</div>
-                </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-green-400">{taskStats.completedTasks}</div>
-                  <div className="text-gray-300 text-sm">Tasks Done</div>
-                </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-purple-400">{analytics.totalHours}h</div>
-                  <div className="text-gray-300 text-sm">Total Hours</div>
-                </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-orange-400">{analytics.avgPerDay}</div>
-                  <div className="text-gray-300 text-sm">Avg/Day</div>
-                </div>
-              </div>
-            </section>
-
-            {/* Hourly Heatmap */}
-            <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <TrendingUp className="text-purple-400" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-100">Peak Hours</h2>
-                  <p className="text-gray-400 text-sm">When you're most productive today</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 gap-1">
-                {hourlyData.map(({ hour, count }) => (
-                  <div key={hour} className="text-center">
-                    <div 
-                      className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-medium transition-all ${
-                        count > 0 ? 'bg-blue-500 text-white' : 'bg-gray-800/50 text-gray-500'
-                      }`}
-                      title={`${parseInt(hour) === 0 ? '12' : parseInt(hour) > 12 ? parseInt(hour) - 12 : parseInt(hour)}${parseInt(hour) < 12 ? 'AM' : 'PM'} - ${count} sessions`}
-                    >
-                      {count || ''}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {parseInt(hour) === 0 ? '12A' : parseInt(hour) > 12 ? `${parseInt(hour) - 12}P` : parseInt(hour) === 12 ? '12P' : `${parseInt(hour)}A`}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Today's Timeline */}
-            <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Clock className="text-green-400" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-100">Today's Timeline</h2>
-                  <p className="text-gray-400 text-sm">Chronological view of your work sessions</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {sortedTodaySessions.length === 0 ? (
-                  <p className="text-gray-400 text-center py-8">No sessions recorded for today</p>
-                ) : (
-                  sortedTodaySessions.map((session, index) => (
-                    <div key={index} className="flex items-center gap-4 p-3 bg-gray-800/30 rounded-lg">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                      <div className="flex-1">
-                        <div className="text-gray-200 font-medium">{session.task}</div>
-                        <div className="text-gray-400 text-sm">
-                          {formatLocalTime(session.completedAt)} • {session.duration} min
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-          </>
-        ) : (
-          <>
-            {/* Monthly Stats */}
-            <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <BarChart3 className="text-blue-400" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-100">Monthly Overview</h2>
-                  <p className="text-gray-400 text-sm">Your productivity patterns this month</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-blue-400">{analytics.totalSessions}</div>
-                  <div className="text-gray-300 text-sm">Total Sessions</div>
-                </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-green-400">{taskStats.totalTasks}</div>
-                  <div className="text-gray-300 text-sm">Total Tasks</div>
-                </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-purple-400">{analytics.totalHours}h</div>
-                  <div className="text-gray-300 text-sm">Total Hours</div>
-                </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-orange-400">{analytics.avgPerDay}</div>
-                  <div className="text-gray-300 text-sm">Avg Per Day</div>
-                </div>
-              </div>
-            </section>
-
-            {/* Activity Calendar */}
-            <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Calendar className="text-green-400" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-100">Activity Calendar</h2>
-                  <p className="text-gray-400 text-sm">Visual representation of your daily progress</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {Array.from({ length: Math.ceil(calendarGrid.length / 7) }, (_, weekIndex) => (
-                  <div key={weekIndex} className="flex gap-1">
-                    {calendarGrid.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => (
-                      <div
-                        key={dayIndex}
-                        className={`w-4 h-4 rounded-sm ${day.intensity > 0 ? getIntensityColor(day.intensity) : 'bg-gray-800/50'}`}
-                        title={`${day.date}: ${day.count} sessions`}
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </section>
-          </>
-        )}
-
-        {/* Task Breakdown */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-orange-500/20 rounded-lg">
-              <Target className="text-orange-400" size={20} />
+        {/* Daily Summary */}
+        <section>
+          <div className="grid grid-cols-4 gap-8 text-center">
+            <div>
+              <div className="text-3xl font-light text-white">{progressData.today.sessions}</div>
+              <div className="text-gray-500 text-sm mt-1">sessions today</div>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-100">Task Breakdown</h2>
-              <p className="text-gray-400 text-sm">How you spent your time across different tasks</p>
+              <div className="text-3xl font-light text-white">{progressData.today.hours}h</div>
+              <div className="text-gray-500 text-sm mt-1">focus time</div>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            {Object.entries(analytics.taskBreakdown).length === 0 ? (
-              <p className="text-gray-400 text-center py-4">No tasks recorded yet</p>
-            ) : (
-              Object.entries(analytics.taskBreakdown).map(([task, count]) => {
-                const percentage = Math.round((count / analytics.totalSessions) * 100)
-                return (
-                  <div key={task} className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-gray-200 font-medium">{task}</span>
-                        <span className="text-gray-400 text-sm">{count} sessions ({percentage}%)</span>
-                      </div>
-                      <div className="w-full bg-gray-800/50 rounded-full h-2">
-                        <div 
-                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            )}
+            <div>
+              <div className="text-3xl font-light text-white">{progressData.today.completed}</div>
+              <div className="text-gray-500 text-sm mt-1">completed</div>
+            </div>
+            <div>
+              <div className="text-3xl font-light text-white">{progressData.streak}</div>
+              <div className="text-gray-500 text-sm mt-1">day streak</div>
+            </div>
           </div>
         </section>
 
-        {/* Task Management */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-500/20 rounded-lg">
-                <Trash2 className="text-red-400" size={20} />
+        {/* Activity Grid */}
+        <section>
+          <h2 className="text-lg font-light text-gray-300 mb-6">Activity</h2>
+          
+          <div className="space-y-4">
+            {/* Month labels */}
+            <div className="flex text-xs text-gray-600 ml-8">
+              {Array.from({ length: 12 }, (_, i) => {
+                const date = new Date()
+                date.setDate(date.getDate() - (83 - i * 7))
+                return (
+                  <div key={i} className="w-3 text-center" style={{ marginRight: '2px' }}>
+                    {i % 4 === 0 ? date.toLocaleDateString('en-US', { month: 'short' }) : ''}
+                  </div>
+                )
+              })}
+            </div>
+            
+            {/* Grid */}
+            <div className="flex">
+              {/* Day labels */}
+              <div className="flex flex-col text-xs text-gray-600 mr-2">
+                <div className="h-3"></div>
+                <div className="h-3 flex items-center">Mon</div>
+                <div className="h-3"></div>
+                <div className="h-3 flex items-center">Wed</div>
+                <div className="h-3"></div>
+                <div className="h-3 flex items-center">Fri</div>
+                <div className="h-3"></div>
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-100">Task Management</h2>
-                <p className="text-gray-400 text-sm">Manage your tasks and clean up completed ones</p>
+              
+              {/* Activity squares */}
+              <div className="grid grid-rows-7 grid-flow-col gap-0.5">
+                {activityGrid.map((day, index) => (
+                  <div
+                    key={index}
+                    className={`w-3 h-3 ${getIntensityColor(day.intensity)} hover:ring-1 hover:ring-gray-500 transition-all`}
+                    title={`${day.date}: ${day.count} sessions`}
+                  />
+                ))}
               </div>
             </div>
-            {tasks.filter(t => t.completed).length > 0 && (
-              <button 
-                onClick={clearAllCompletedTasks}
-                className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
-              >
-                Clear Completed ({tasks.filter(t => t.completed).length})
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            {tasks.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <Target size={48} className="mx-auto mb-3 opacity-50" />
-                <p>No tasks found</p>
-                <p className="text-sm mt-1">Create tasks from the timer page to see them here</p>
+            
+            {/* Legend */}
+            <div className="flex items-center justify-end gap-2 text-xs text-gray-600">
+              <span>Less</span>
+              <div className="flex gap-0.5">
+                {[0, 1, 2, 3, 4].map(i => (
+                  <div key={i} className={`w-3 h-3 ${getIntensityColor(i)}`} />
+                ))}
               </div>
-            ) : (
-              tasks.map((task) => (
-                <div key={task.id} className="group flex items-center gap-4 p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                  {/* Status indicator */}
-                  <div className="flex items-center gap-2">
-                    {task.completed ? (
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    ) : task.actualPomodoros > 0 ? (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    ) : (
-                      <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-                    )}
-                  </div>
+              <span>More</span>
+            </div>
+          </div>
+        </section>
 
-                  {/* Task info */}
-                  <div className="flex-1">
-                    <div className={`font-medium ${task.completed ? 'text-gray-400 line-through' : 'text-gray-200'}`}>
-                      {task.name}
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                      <span>{task.actualPomodoros}/{task.estimatedPomodoros} sessions</span>
-                      {task.completed && task.completedAt && (
-                        <span>Completed {new Date(task.completedAt).toLocaleDateString()}</span>
-                      )}
-                      {task.actualPomodoros >= task.estimatedPomodoros && task.estimatedPomodoros > 0 && !task.completed && (
-                        <span className="text-green-400 text-xs">Ready to complete</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="hidden md:block w-24">
-                    {task.estimatedPomodoros > 0 && (
-                      <div className="w-full bg-gray-700 rounded-full h-1.5">
-                        <div 
-                          className={`h-1.5 rounded-full transition-all duration-300 ${
-                            task.completed ? 'bg-green-500' : 'bg-blue-500'
-                          }`}
-                          style={{ 
-                            width: `${Math.min((task.actualPomodoros / task.estimatedPomodoros) * 100, 100)}%` 
-                          }}
-                        />
+        {/* Accomplishment Timeline */}
+        <section>
+          <h2 className="text-lg font-light text-gray-300 mb-6">Recent accomplishments</h2>
+          
+          <div className="space-y-6">
+            {timeline.map((day, index) => (
+              <div key={day.date} className="space-y-3">
+                <div className="flex items-center gap-4 text-gray-400">
+                  <span className="text-sm font-medium">{day.displayDate}</span>
+                  <div className="h-px bg-gray-800 flex-1"></div>
+                  <span className="text-xs">{day.sessions} sessions</span>
+                </div>
+                
+                {day.completed.length > 0 && (
+                  <div className="space-y-2 ml-4">
+                    {day.completed.map((task, taskIndex) => (
+                      <div key={task.id} className="flex items-center gap-3">
+                        <div className="w-1 h-4 bg-green-500"></div>
+                        <span className="text-gray-300">{task.name}</span>
+                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                          <span>{task.actualPomodoros}</span>
+                          <span>/</span>
+                          <span>{task.estimatedPomodoros}</span>
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    {!task.completed && task.actualPomodoros >= task.estimatedPomodoros && task.estimatedPomodoros > 0 && (
-                      <button
-                        onClick={() => toggleTaskCompletion(task.id)}
-                        className="p-2 text-green-400 hover:bg-green-500/20 rounded-lg transition-colors"
-                        title="Mark as complete"
-                      >
-                        <Check size={16} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Delete task "${task.name}" and all its session data?`)) {
-                          deleteTaskCompletely(task.id, task.name);
-                        }
-                      }}
-                      className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete task and session data"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Summary */}
-          {tasks.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-700/30">
-              <div className="flex items-center gap-4 text-sm text-gray-400">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-                  <span>{tasks.filter(t => !t.completed && t.actualPomodoros === 0).length} not started</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>{tasks.filter(t => !t.completed && t.actualPomodoros > 0).length} in progress</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>{tasks.filter(t => t.completed).length} completed</span>
-                </div>
+                )}
               </div>
+            ))}
+          </div>
+          
+          {timeline.length === 0 && (
+            <div className="text-center py-8 text-gray-600">
+              <div className="text-sm">No recent activity</div>
             </div>
           )}
         </section>
 
-        {/* Insights */}
-        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-500/20 rounded-lg">
-              <Zap className="text-purple-400" size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-100">Smart Insights</h2>
-              <p className="text-gray-400 text-sm">AI-powered observations about your productivity</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {analytics.todayCount >= 6 && (
-              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                <p className="text-green-200 text-sm">🔥 Amazing focus today! You've completed {analytics.todayCount} sessions.</p>
-              </div>
-            )}
-            {parseFloat(analytics.avgPerDay) >= 5 && (
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-blue-200 text-sm">⭐ You're building consistent daily habits with {analytics.avgPerDay} sessions per day.</p>
-              </div>
-            )}
-            {taskStats.avgPomodorosPerTask < 2 && taskStats.completedTasks > 0 && (
-              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <p className="text-yellow-200 text-sm">⚡ You're great at quick wins! Most tasks completed in under 2 sessions.</p>
-              </div>
-            )}
-            {taskStats.avgPomodorosPerTask >= 3 && (
-              <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-                <p className="text-purple-200 text-sm">🧠 Deep work champion! You average {taskStats.avgPomodorosPerTask.toFixed(1)} sessions per task.</p>
-              </div>
-            )}
-            {(analytics.todayCount || 0) === 0 && (
-              <div className="p-3 bg-gray-500/10 border border-gray-500/20 rounded-lg">
-                <p className="text-gray-300 text-sm">📈 Ready to start your productivity journey? Begin with your first session!</p>
-              </div>
-            )}
+        {/* Weekly Summary */}
+        <section>
+          <h2 className="text-lg font-light text-gray-300 mb-6">This week</h2>
+          
+          <div className="space-y-4">
+            {(() => {
+              const thisWeek = (sessions || []).filter(s => {
+                const sessionDate = new Date(s.date)
+                const startOfWeek = new Date()
+                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+                return sessionDate >= startOfWeek && !s.task.includes('Break')
+              })
+              
+              const weekCompleted = tasks.filter(t => {
+                if (!t.completed || !t.completedAt) return false
+                const completedDate = new Date(t.completedAt)
+                const startOfWeek = new Date()
+                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+                return completedDate >= startOfWeek
+              })
+              
+              return (
+                <div className="grid grid-cols-3 gap-8 text-center">
+                  <div>
+                    <div className="text-2xl font-light text-white">{thisWeek.length}</div>
+                    <div className="text-gray-500 text-sm">sessions</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-light text-white">{weekCompleted.length}</div>
+                    <div className="text-gray-500 text-sm">completed</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-light text-white">
+                      {Math.round(thisWeek.reduce((acc, s) => acc + (s.duration || 0), 0) / 60 * 10) / 10}h
+                    </div>
+                    <div className="text-gray-500 text-sm">focus time</div>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </section>
+
+
       </div>
     </div>
   )
