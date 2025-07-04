@@ -1,7 +1,7 @@
 // Keyboard shortcuts hook for Pomodoro
 import { useEffect, useState } from "react"
 
-export function useKeyboardShortcuts(actions: Record<string, () => void>) {
+export function useKeyboardShortcuts(actions: Record<string, () => void>, disableShortcutsModal = false) {
   // State for showing the shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false)
 
@@ -60,8 +60,11 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
             break
           case "h":
           case "/":
-            e.preventDefault()
-            setShowShortcuts(true)
+            // Only show shortcuts modal if not disabled
+            if (!disableShortcutsModal) {
+              e.preventDefault()
+              setShowShortcuts(true)
+            }
             break
         }
       }
@@ -76,7 +79,7 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>) {
     }
     window.addEventListener("keydown", handleKeyPress)
     return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [actions, showShortcuts])
+  }, [actions, showShortcuts, disableShortcutsModal])
 
   // Return info about shortcuts for UI display
   const shortcuts = [

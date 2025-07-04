@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useAuth } from "@/contexts/AuthContext"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useEffect } from "react"
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
 
@@ -13,9 +13,14 @@ interface ProtectedRouteProps {
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  
+  // Don't show general shortcuts modal on timer page (it has its own)
+  const isTimerPage = pathname === "/"
+  
   const { shortcuts, showShortcuts, setShowShortcuts } = useKeyboardShortcuts({
     closeModalOrBack: () => router.back(),
-  })
+  }, isTimerPage) // Disable shortcuts modal on timer page
 
   useEffect(() => {
     console.log("ProtectedRoute: useEffect triggered - loading:", loading, "user:", user ? "present" : "null")
@@ -45,8 +50,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   return (
     <>
       {children}
-      {/* Minimal keyboard shortcuts popout */}
-      {showShortcuts && (
+      {/* Minimal keyboard shortcuts popout - only show on non-timer pages */}
+      {showShortcuts && !isTimerPage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
           onClick={() => setShowShortcuts(false)}
