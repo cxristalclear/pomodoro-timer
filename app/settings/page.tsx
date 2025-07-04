@@ -398,14 +398,14 @@ function MinimalSettingsContent() {
                 </button>
                 
                 <button
-                  onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'digital' }))}
+                  onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'elapsed' }))}
                   className={`p-3 text-center border transition-all ${
-                    localSettings.timerDisplayMode === 'digital'
+                    localSettings.timerDisplayMode === 'elapsed'
                       ? 'border-blue-500 bg-blue-500/10 text-blue-200'
                       : 'border-gray-700 text-gray-400 hover:border-gray-600'
                   }`}
                 >
-                  Digital
+                  Elapsed
                 </button>
               </div>
             </div>

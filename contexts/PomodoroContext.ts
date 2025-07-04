@@ -41,7 +41,7 @@ export interface Settings {
   soundVolume: number
   autoStartBreaks: boolean
   autoStartWork: boolean
-  timerDisplayMode?: "digital" | "analog" | "countdown"
+  timerDisplayMode?: "elapsed" | "analog" | "countdown"
 }
 
 // Enhanced filter and search interfaces

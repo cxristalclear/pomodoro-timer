@@ -70,8 +70,18 @@ export const TimerDisplay: React.FC = () => {
 
   // Get display time based on mode
   const getDisplayTime = () => {
-    // For now, always show countdown mode since we removed elapsed mode
-    // In the future, we can add analog mode support here
+    if (settings.timerDisplayMode === "elapsed") {
+      // Calculate elapsed time (how much time has passed)
+      const sessionDuration = sessionType === "work" 
+        ? settings.workDuration * 60
+        : sessionType === "shortBreak" 
+        ? settings.breakDuration * 60 
+        : settings.longBreakDuration * 60;
+      
+      return sessionDuration - time;
+    }
+    
+    // Default to countdown mode (time remaining)
     return time;
   };
 
