@@ -271,6 +271,12 @@ export function useTasks(userId: string | undefined) {
     }
   }, [tasks]);
 
+  // Clear selection
+  const clearSelection = useCallback(() => {
+    setCurrentTask("");
+    setSelectedTaskId(null);
+  }, []);
+
   // setTasks for context: allow both array and updater function, but always call updateTaskOrder
   const setTasksForContext = useCallback((tasksOrUpdater: Task[] | ((prev: Task[]) => Task[])) => {
     if (typeof tasksOrUpdater === "function") {
@@ -303,5 +309,6 @@ export function useTasks(userId: string | undefined) {
     updateTaskOrder,
     incrementTaskPomodoros,
     getTaskStats,
+    clearSelection,
   }
 }

@@ -108,7 +108,8 @@ export function usePomodoroLogic() {
     updateTask, 
     updateTaskOrder,
     incrementTaskPomodoros,
-    getTaskStats
+    getTaskStats,
+    clearSelection
   } = tasksHook;
 
   // Sessions
@@ -551,6 +552,7 @@ export function usePomodoroLogic() {
     incrementTaskPomodoros,
     getTaskStats,
     loadTasks,
+    clearSelection,
 
     // Enhanced task state
     taskFilters,

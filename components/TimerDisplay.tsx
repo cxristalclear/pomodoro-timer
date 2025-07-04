@@ -36,6 +36,8 @@ export const TimerDisplay: React.FC = () => {
     selectedTaskId,
     loadTasks,
     toggleTaskCompletion,
+    selectTask,
+    clearSelection,
   } = usePomodoro()
 
   const router = useRouter()
@@ -203,11 +205,11 @@ export const TimerDisplay: React.FC = () => {
             aria-label={isRunning ? "Pause timer" : "Start timer"}
           >
             {isRunning ? (
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-8 h-8">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
               </svg>
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-8 h-8">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
               </svg>
             )}
@@ -218,7 +220,7 @@ export const TimerDisplay: React.FC = () => {
             title="Reset Timer"
             aria-label="Reset timer"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-8 h-8">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
           </button>
@@ -262,11 +264,23 @@ export const TimerDisplay: React.FC = () => {
                   Continue Task
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const currentTaskObj = tasks.find(task => task.id === selectedTaskId);
                     if (currentTaskObj) {
-                      // Complete the task
-                      toggleTaskCompletion(currentTaskObj.id);
+                      // Complete the current task
+                      await toggleTaskCompletion(currentTaskObj.id);
+                      
+                      // Find the next available (incomplete) task
+                      const incompleteTasks = tasks.filter(task => task.id !== currentTaskObj.id && !task.completed);
+                      
+                      if (incompleteTasks.length > 0) {
+                        // Select the first available incomplete task
+                        const nextTask = incompleteTasks[0];
+                        await selectTask(nextTask);
+                      } else {
+                        // No more tasks available - clear selection to show "[select a task]"
+                        clearSelection();
+                      }
                     }
                     setShowPostSessionActions(false);
                   }}

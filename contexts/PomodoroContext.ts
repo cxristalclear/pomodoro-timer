@@ -120,6 +120,7 @@ export interface PomodoroContextType {
     avgPomodorosPerTask: number
   }>
   loadTasks: () => Promise<void>
+  clearSelection: () => void
 
   // Enhanced task actions (new)
   addTaskWithDetails: (taskDetails: Partial<Task>) => Promise<void>
