@@ -35,6 +35,7 @@ export const TimerDisplay: React.FC = () => {
     tasks,
     selectedTaskId,
     loadTasks,
+    toggleTaskCompletion,
   } = usePomodoro()
 
   const router = useRouter()
@@ -260,9 +261,7 @@ export const TimerDisplay: React.FC = () => {
                     const currentTaskObj = tasks.find(task => task.id === selectedTaskId);
                     if (currentTaskObj) {
                       // Complete the task
-                      import("@/contexts/PomodoroContext").then(({ usePomodoro }) => {
-                        usePomodoro().toggleTaskCompletion(currentTaskObj.id);
-                      });
+                      toggleTaskCompletion(currentTaskObj.id);
                     }
                     setShowPostSessionActions(false);
                   }}

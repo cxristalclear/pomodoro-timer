@@ -82,6 +82,7 @@ export interface PomodoroContextType {
 
   // Session tracking
   sessions: Session[]
+  loadSessions: () => Promise<void>
 
   // Settings
   settings: Settings

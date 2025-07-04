@@ -7,17 +7,72 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 
 /**
+ * Debug button component for troubleshooting analytics data
+ */
+const DebugButton = () => {
+  const { sessions } = usePomodoro();
+  
+  const debug = () => {
+    console.log("🔍 ANALYTICS DEBUG:");
+    console.log("- Sessions count:", sessions?.length);
+    console.log("- Sample session:", sessions?.[0]);
+    console.log("- Today (JS):", new Date().toLocaleDateString());
+    console.log("- Today (ISO):", new Date().toISOString().split('T')[0]);
+    
+    if (sessions?.[0]) {
+      console.log("- Session date format:", sessions[0].date);
+      console.log("- Session date type:", typeof sessions[0].date);
+    }
+    
+    // Show all unique dates in sessions
+    const uniqueDates = [...new Set(sessions?.map(s => s.date) || [])];
+    console.log("- All unique dates in sessions:", uniqueDates);
+    
+    // Check today's sessions using both formats
+    const todayJS = new Date().toLocaleDateString();
+    const todayISO = new Date().toISOString().split('T')[0];
+    
+    const todaySessionsJS = sessions?.filter(s => s.date === todayJS) || [];
+    const todaySessionsISO = sessions?.filter(s => s.date === todayISO) || [];
+    
+    console.log("- Today sessions (JS format):", todaySessionsJS.length);
+    console.log("- Today sessions (ISO format):", todaySessionsISO.length);
+  };
+  
+  return (
+    <button 
+      onClick={debug} 
+      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition-colors"
+    >
+      🔍 Debug Analytics
+    </button>
+  );
+};
+
+/**
  * Analytics page component
  * Displays session statistics, activity calendar, and task breakdown
  */
 function AnalyticsPageContent() {
-  const { sessions, dataLoading, getTaskStats } = usePomodoro()
+  const { sessions, dataLoading, getTaskStats, loadSessions } = usePomodoro()
   const [taskStats, setTaskStats] = useState({
     totalTasks: 0,
     completedTasks: 0,
     totalPomodoros: 0,
     avgPomodorosPerTask: 0
   })
+  const [sessionsLoading, setSessionsLoading] = useState(true)
+
+  // Load sessions when component mounts
+  useEffect(() => {
+    if (loadSessions) {
+      console.log("📊 Analytics page loading sessions...");
+      setSessionsLoading(true);
+      loadSessions().finally(() => {
+        setSessionsLoading(false);
+      });
+    }
+  }, [loadSessions])
 
   // Load task statistics
   useEffect(() => {
@@ -36,7 +91,7 @@ function AnalyticsPageContent() {
   const analytics = calculateAnalytics(sessions)
   const calendarGrid = generateCalendarGrid(sessions)
 
-  if (dataLoading) {
+  if (dataLoading || sessionsLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-xl">Loading analytics...</div>
@@ -49,13 +104,16 @@ function AnalyticsPageContent() {
       {/* Page header */}
       <header className="flex justify-between items-center p-6 border-b border-gray-900">
         <h1 className="text-xl font-light">Analytics</h1>
-        <Link
-          href="/"
-          className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
-          aria-label="Back to timer"
-        >
-          <X size={24} />
-        </Link>
+        <div className="flex items-center gap-4">
+          <DebugButton />
+          <Link
+            href="/"
+            className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
+            aria-label="Back to timer"
+          >
+            <X size={24} />
+          </Link>
+        </div>
       </header>
 
       {/* Analytics content */}

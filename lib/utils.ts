@@ -50,7 +50,7 @@ export function generateCalendarGrid(sessions: Array<{ date: string }>) {
   for (let i = 29; i >= 0; i--) {
     const date = new Date()
     date.setDate(today.getDate() - i)
-    const dateStr = date.toLocaleDateString()
+    const dateStr = date.toISOString().split('T')[0]
     const daysSessions = sessions.filter((s) => s.date === dateStr)
 
     grid.push({
@@ -70,7 +70,7 @@ export function generateCalendarGrid(sessions: Array<{ date: string }>) {
  * @returns Analytics object with statistics
  */
 export function calculateAnalytics(sessions: Array<{ date: string; duration: number; task: string }>) {
-  const today = new Date().toLocaleDateString()
+  const today = new Date().toISOString().split('T')[0]
   const todaySessions = sessions.filter((s) => s.date === today)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.duration, 0)
   const uniqueDays = [...new Set(sessions.map((s) => s.date))].length

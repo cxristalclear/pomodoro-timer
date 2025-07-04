@@ -122,7 +122,8 @@ export function usePomodoroLogic() {
     getTodaysFocusTime, 
     getSessionStats,
     getSessionsForTask,
-    getTaskPomodoros
+    getTaskPomodoros,
+    loadSessions
   } = sessionsHook;
   const [completedTasks, setCompletedTasks] = useState(0);
 
@@ -579,6 +580,7 @@ export function usePomodoroLogic() {
 
     // Sessions
     sessions,
+    loadSessions,
     completedTasks,
     getSessionsByDate,
     getTodaysFocusTime,
