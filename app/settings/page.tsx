@@ -1,15 +1,14 @@
 "use client"
 
 import type React from "react"
-import { X, Save, Check } from "lucide-react"
+import { X, Save, Check, Clock, Volume2, Play, Monitor, Bell, Zap, Timer, Settings as SettingsIcon } from "lucide-react"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 
 /**
- * Settings page component
- * Allows users to configure timer durations, sound settings, and auto-start options
+ * Enhanced Settings page component with better organization and visual design
  */
 function SettingsPageContent() {
   const { settings, setSettings, updateSettings, dataLoading } = usePomodoro()
@@ -18,11 +17,6 @@ function SettingsPageContent() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Debug logging
-  console.log("SettingsPage - settings:", settings)
-  console.log("SettingsPage - localSettings:", localSettings)
-  console.log("SettingsPage - dataLoading:", dataLoading)
 
   // Update local settings when global settings change
   useEffect(() => {
@@ -81,52 +75,59 @@ function SettingsPageContent() {
   }, [hasChanges])
 
   /**
-   * Create a toggle button component for boolean settings
+   * Enhanced toggle component
    */
-  const ToggleButton: React.FC<{
+  const EnhancedToggle: React.FC<{
     enabled: boolean
     onChange: () => void
     label: string
-  }> = ({ enabled, onChange, label }) => (
-    <div className="flex items-center justify-between">
-      <span className="text-gray-300">{label}</span>
+    description?: string
+  }> = ({ enabled, onChange, label, description }) => (
+    <div className="flex items-center justify-between p-4 hover:bg-gray-800/30 rounded-lg transition-colors">
+      <div className="flex-1">
+        <div className="text-gray-200 font-medium">{label}</div>
+        {description && <div className="text-gray-400 text-sm mt-1">{description}</div>}
+      </div>
       <button
         onClick={onChange}
-        className={`w-12 h-6 rounded-full transition-colors ${enabled ? "bg-blue-600" : "bg-gray-800"}`}
-        aria-label={`Toggle ${label}`}
-        role="switch"
-        aria-checked={enabled}
+        className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+          enabled 
+            ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25' 
+            : 'bg-gray-600'
+        }`}
       >
         <div
-          className={`w-5 h-5 bg-white rounded-full transition-transform ${enabled ? "translate-x-6" : "translate-x-0.5"}`}
+          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all duration-300 ${
+            enabled ? 'left-6 shadow-lg' : 'left-0.5'
+          }`}
         />
       </button>
     </div>
   )
 
   /**
-   * Create a number input component for duration settings
+   * Enhanced input component
    */
-  const DurationInput: React.FC<{
-    label: string
+  const EnhancedInput: React.FC<{
     value: number
     onChange: (value: number) => void
+    label: string
+    suffix: string
     min?: number
     max?: number
-  }> = ({ label, value, onChange, min = 1, max = 180 }) => (
-    <div>
-      <label className="block text-gray-500 text-sm mb-2">{label}</label>
-      <div className="flex items-center gap-4">
+  }> = ({ value, onChange, label, suffix, min = 1, max = 120 }) => (
+    <div className="space-y-2">
+      <label className="text-gray-200 font-medium">{label}</label>
+      <div className="flex items-center gap-3">
         <input
           type="number"
           value={value}
+          onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))}
           min={min}
           max={max}
-          onChange={(e) => onChange(Number.parseInt(e.target.value) || min)}
-          className="w-20 bg-gray-900 px-3 py-2 rounded outline-none focus:bg-gray-800 text-center transition-colors border border-gray-700 focus:border-blue-500"
-          aria-label={label}
+          className="bg-gray-800/50 border border-gray-600/50 px-4 py-3 rounded-lg text-white font-medium text-center w-20 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
         />
-        <span className="text-gray-500">minutes</span>
+        <span className="text-gray-400 text-sm">{suffix}</span>
       </div>
     </div>
   )
@@ -140,159 +141,37 @@ function SettingsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Page header */}
-      <header className="flex justify-between items-center p-6 border-b border-gray-900">
-        <h1 className="text-xl font-light">Settings</h1>
-        <Link
-          href="/"
-          className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
-          aria-label="Back to timer"
-        >
-          <X size={24} />
-        </Link>
-      </header>
-
-      {/* Settings content */}
-      <div className="flex-1 p-6 max-w-md mx-auto w-full">
-        <div className="space-y-6">
-          {/* Error message */}
-          {error && (
-            <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg">{error}</div>
-          )}
-
-          {/* Timer duration settings */}
-          <div className="space-y-4">
-            <h3 className="text-gray-500 text-sm">Timer Settings</h3>
-
-            <DurationInput
-              label="Work Duration"
-              value={localSettings.workDuration}
-              onChange={(value) => setLocalSettings((prev) => ({ ...prev, workDuration: value }))}
-            />
-
-            <DurationInput
-              label="Break Duration"
-              value={localSettings.breakDuration}
-              onChange={(value) => setLocalSettings((prev) => ({ ...prev, breakDuration: value }))}
-            />
-
-            <DurationInput
-              label="Long Break Duration"
-              value={localSettings.longBreakDuration}
-              onChange={(value) => setLocalSettings((prev) => ({ ...prev, longBreakDuration: value }))}
-            />
-
-            <div>
-              <label className="block text-gray-500 text-sm mb-2">Sessions Until Long Break</label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="number"
-                  value={localSettings.sessionsUntilLongBreak}
-                  min={2}
-                  max={10}
-                  onChange={(e) =>
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      sessionsUntilLongBreak: Number.parseInt(e.target.value) || 4,
-                    }))
-                  }
-                  className="w-20 bg-gray-900 px-3 py-2 rounded outline-none focus:bg-gray-800 text-center transition-colors border border-gray-700 focus:border-blue-500"
-                  aria-label="Sessions until long break"
-                />
-                <span className="text-gray-500">sessions</span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+      {/* Enhanced header */}
+      <header className="flex justify-between items-center p-6 border-b border-gray-800 bg-black/50 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gray-800/50 rounded-lg">
+            <SettingsIcon className="text-blue-400" size={20} />
           </div>
-
-          {/* Sound and notification settings */}
-          <div className="space-y-4">
-            <h3 className="text-gray-500 text-sm">Sound & Notifications</h3>
-
-            <ToggleButton
-              enabled={localSettings.soundEnabled}
-              onChange={() => setLocalSettings((prev) => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
-              label="Sound Alerts"
-            />
-
-            <div>
-              <label className="block text-gray-500 text-sm mb-2">Volume</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={localSettings.soundVolume}
-                onChange={(e) =>
-                  setLocalSettings((prev) => ({ ...prev, soundVolume: Number.parseFloat(e.target.value) }))
-                }
-                className="w-full accent-blue-600"
-                disabled={!localSettings.soundEnabled}
-                aria-label="Sound volume"
-              />
-              <div className="text-xs text-gray-500 mt-1">{Math.round(localSettings.soundVolume * 100)}%</div>
-            </div>
+          <div>
+            <h1 className="text-xl font-semibold">Settings</h1>
+            <p className="text-gray-400 text-sm">Customize your Pomodoro experience</p>
           </div>
-
-          {/* Auto-start settings */}
-          <div className="space-y-4">
-            <h3 className="text-gray-500 text-sm">Auto-start</h3>
-
-            <ToggleButton
-              enabled={localSettings.autoStartBreaks}
-              onChange={() => setLocalSettings((prev) => ({ ...prev, autoStartBreaks: !prev.autoStartBreaks }))}
-              label="Auto-start Breaks"
-            />
-
-            <ToggleButton
-              enabled={localSettings.autoStartWork}
-              onChange={() => setLocalSettings((prev) => ({ ...prev, autoStartWork: !prev.autoStartWork }))}
-              label="Auto-start Work Sessions"
-            />
-          </div>
-
-          {/* Timer display settings */}
-          <div className="space-y-4">
-            <h3 className="text-gray-500 text-sm">Timer Display</h3>
-
-            <div>
-              <label className="block text-gray-500 text-sm mb-2">Display Mode</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "countdown" }))}
-                  className={`flex-1 px-3 py-2 rounded transition-colors ${
-                    localSettings.timerDisplayMode === "countdown"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                  }`}
-                >
-                  Countdown
-                </button>
-                <button
-                  onClick={() => setLocalSettings((prev) => ({ ...prev, timerDisplayMode: "digital" }))}
-                  className={`flex-1 px-3 py-2 rounded transition-colors ${
-                    localSettings.timerDisplayMode === "digital"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                  }`}
-                >
-                  Digital
-                </button>
-              </div>
-            </div>
-          </div>
-
+        </div>
+        
+        <div className="flex items-center gap-3">
           {/* Save/Reset buttons */}
           {hasChanges && (
-            <div className="flex gap-3 pt-4 border-t border-gray-800">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleReset}
+                className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
+              >
+                Reset
+              </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-3 rounded-lg transition-colors font-medium"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
               >
                 {saving ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                     Saving...
                   </>
                 ) : saved ? (
@@ -303,33 +182,226 @@ function SettingsPageContent() {
                 ) : (
                   <>
                     <Save size={16} />
-                    Save Changes
+                    Save
                   </>
                 )}
               </button>
-              <button
-                onClick={handleReset}
-                disabled={saving}
-                className="px-4 py-3 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white rounded-lg transition-colors"
-              >
-                Reset
-              </button>
             </div>
           )}
+          
+          <Link
+            href="/"
+            className="text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Back to timer"
+          >
+            <X size={24} />
+          </Link>
+        </div>
+      </header>
 
-          {/* Keyboard shortcuts info */}
-          <div className="text-xs text-gray-600 pt-4 border-t border-gray-900">
-            <p className="mb-2">Keyboard shortcuts:</p>
-            <div className="space-y-1">
-              <p>
-                <kbd className="bg-gray-800 px-1 rounded">Ctrl/Cmd + S</kbd> Save settings
-              </p>
-              <p>
-                <kbd className="bg-gray-800 px-1 rounded">Ctrl/Cmd + R</kbd> Reset timer
-              </p>
+      <div className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8">
+        
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-red-200">
+            {error}
+          </div>
+        )}
+
+        {/* Timer Duration Settings */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
+              <Timer className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Timer Durations</h2>
+              <p className="text-gray-400 text-sm">Set your focus and break session lengths</p>
             </div>
           </div>
-        </div>
+          
+          <div className="grid gap-6">
+            <EnhancedInput
+              value={localSettings.workDuration}
+              onChange={(value) => setLocalSettings(prev => ({ ...prev, workDuration: value }))}
+              label="Work Duration"
+              suffix="minutes"
+              min={1}
+              max={120}
+            />
+            
+            <EnhancedInput
+              value={localSettings.breakDuration}
+              onChange={(value) => setLocalSettings(prev => ({ ...prev, breakDuration: value }))}
+              label="Short Break Duration"
+              suffix="minutes"
+              min={1}
+              max={30}
+            />
+            
+            <EnhancedInput
+              value={localSettings.longBreakDuration}
+              onChange={(value) => setLocalSettings(prev => ({ ...prev, longBreakDuration: value }))}
+              label="Long Break Duration"
+              suffix="minutes"
+              min={1}
+              max={60}
+            />
+            
+            <EnhancedInput
+              value={localSettings.sessionsUntilLongBreak}
+              onChange={(value) => setLocalSettings(prev => ({ ...prev, sessionsUntilLongBreak: value }))}
+              label="Sessions Until Long Break"
+              suffix="sessions"
+              min={2}
+              max={10}
+            />
+          </div>
+        </section>
+
+        {/* Sound & Notifications */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-green-500/20 rounded-lg">
+              <Volume2 className="text-green-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Audio & Alerts</h2>
+              <p className="text-gray-400 text-sm">Configure sound notifications and volume</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <EnhancedToggle
+              enabled={localSettings.soundEnabled}
+              onChange={() => setLocalSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+              label="Sound Alerts"
+              description="Play notification sounds when sessions complete"
+            />
+            
+            {localSettings.soundEnabled && (
+              <div className="ml-4 p-4 bg-gray-800/30 rounded-lg">
+                <label className="text-gray-200 font-medium mb-3 block">Volume</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={localSettings.soundVolume}
+                    onChange={(e) => setLocalSettings(prev => ({ ...prev, soundVolume: parseFloat(e.target.value) }))}
+                    className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <span className="text-gray-300 text-sm w-12">
+                    {Math.round(localSettings.soundVolume * 100)}%
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Automation Settings */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-purple-500/20 rounded-lg">
+              <Zap className="text-purple-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Auto-start</h2>
+              <p className="text-gray-400 text-sm">Automatically begin the next session</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <EnhancedToggle
+              enabled={localSettings.autoStartBreaks}
+              onChange={() => setLocalSettings(prev => ({ ...prev, autoStartBreaks: !prev.autoStartBreaks }))}
+              label="Auto-start Breaks"
+              description="Automatically start break sessions after work completes"
+            />
+            
+            <EnhancedToggle
+              enabled={localSettings.autoStartWork}
+              onChange={() => setLocalSettings(prev => ({ ...prev, autoStartWork: !prev.autoStartWork }))}
+              label="Auto-start Work Sessions"
+              description="Automatically start work sessions after breaks complete"
+            />
+          </div>
+        </section>
+
+        {/* Display Settings */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-orange-500/20 rounded-lg">
+              <Monitor className="text-orange-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Timer Display</h2>
+              <p className="text-gray-400 text-sm">Choose how the timer appears</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'countdown' }))}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                localSettings.timerDisplayMode === 'countdown'
+                  ? 'border-blue-500 bg-blue-500/10 text-blue-200'
+                  : 'border-gray-600 bg-gray-800/30 text-gray-300 hover:border-gray-500'
+              }`}
+            >
+              <Clock className="mx-auto mb-2" size={24} />
+              <div className="font-medium">Countdown</div>
+              <div className="text-xs opacity-75 mt-1">Time remaining</div>
+            </button>
+            
+            <button
+              onClick={() => setLocalSettings(prev => ({ ...prev, timerDisplayMode: 'digital' }))}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                localSettings.timerDisplayMode === 'digital'
+                  ? 'border-blue-500 bg-blue-500/10 text-blue-200'
+                  : 'border-gray-600 bg-gray-800/30 text-gray-300 hover:border-gray-500'
+              }`}
+            >
+              <Timer className="mx-auto mb-2" size={24} />
+              <div className="font-medium">Digital</div>
+              <div className="text-xs opacity-75 mt-1">Classic display</div>
+            </button>
+          </div>
+        </section>
+
+        {/* Keyboard shortcuts info */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-gray-500/20 rounded-lg">
+              <Bell className="text-gray-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Keyboard Shortcuts</h2>
+              <p className="text-gray-400 text-sm">Save time with these helpful shortcuts</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div className="flex justify-between items-center p-2">
+              <span className="text-gray-300">Save settings</span>
+              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Ctrl+S</kbd>
+            </div>
+            <div className="flex justify-between items-center p-2">
+              <span className="text-gray-300">Start/Pause timer</span>
+              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Space</kbd>
+            </div>
+            <div className="flex justify-between items-center p-2">
+              <span className="text-gray-300">Reset timer</span>
+              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Ctrl+R</kbd>
+            </div>
+            <div className="flex justify-between items-center p-2">
+              <span className="text-gray-300">Go to tasks</span>
+              <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">Ctrl+T</kbd>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   )
