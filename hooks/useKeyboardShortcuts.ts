@@ -59,6 +59,15 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>, disabl
             }
             break
           case "h":
+            // Prioritize navigation to help page over modal
+            if (actions.goHelp) {
+              e.preventDefault()
+              actions.goHelp()
+            } else if (!disableShortcutsModal) {
+              e.preventDefault()
+              setShowShortcuts(true)
+            }
+            break
           case "/":
             // Only show shortcuts modal if not disabled
             if (!disableShortcutsModal) {
@@ -91,7 +100,7 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>, disabl
     { keys: 'Ctrl+A', description: 'Go to Analytics' },
     { keys: 'Ctrl+S', description: 'Go to Settings' },
     { keys: 'Ctrl+M', description: 'Go to Menu' },
-    { keys: 'Ctrl+H', description: 'Show Help/Shortcuts' },
+    { keys: 'Ctrl+H', description: 'Go to Help' },
     { keys: 'Ctrl+/', description: 'Show Keyboard Shortcuts' },
     { keys: 'Escape', description: 'Close Modal/Dialog or Go Back' },
   ]

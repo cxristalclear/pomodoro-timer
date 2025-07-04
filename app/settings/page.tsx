@@ -1,17 +1,23 @@
 "use client"
 
 import type React from "react"
-import { X, Save, Check, Clock, Volume2, Play, Monitor, Bell, Zap, Timer, Settings as SettingsIcon } from "lucide-react"
+import { X, Save, Check, Clock, Volume2, Play, Monitor, Bell, Zap, Timer, Settings as SettingsIcon, Settings } from "lucide-react"
 import { usePomodoro } from "@/contexts/PomodoroContext"
+import { useAuth } from "@/contexts/AuthContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { BreadcrumbNav, useBreadcrumbs } from "@/components/BreadcrumbNav"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 
 /**
  * Enhanced Settings page component with better organization and visual design
  */
 function SettingsPageContent() {
   const { settings, setSettings, updateSettings, dataLoading } = usePomodoro()
+  const { user } = useAuth()
+  const pathname = usePathname()
+  const breadcrumbs = useBreadcrumbs(pathname)
   const [localSettings, setLocalSettings] = useState(settings)
   const [hasChanges, setHasChanges] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -143,59 +149,66 @@ function SettingsPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
       {/* Enhanced header */}
-      <header className="flex justify-between items-center p-6 border-b border-gray-800 bg-black/50 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gray-800/50 rounded-lg">
-            <SettingsIcon className="text-blue-400" size={20} />
+      <header className="border-b border-gray-800 bg-black/50 backdrop-blur-sm">
+        <div className="flex justify-between items-center p-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gray-800/50 rounded-lg">
+              <SettingsIcon className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">Settings</h1>
+              <p className="text-gray-400 text-sm">Customize your Pomodoro experience</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-semibold">Settings</h1>
-            <p className="text-gray-400 text-sm">Customize your Pomodoro experience</p>
+          
+          <div className="flex items-center gap-3">
+            {/* Save/Reset buttons */}
+            {hasChanges && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleReset}
+                  className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : saved ? (
+                    <>
+                      <Check size={16} />
+                      Saved!
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      Save
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            
+            <Link
+              href="/"
+              className="text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              aria-label="Back to timer"
+            >
+              <X size={24} />
+            </Link>
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          {/* Save/Reset buttons */}
-          {hasChanges && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleReset}
-                className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
-              >
-                Reset
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    Saving...
-                  </>
-                ) : saved ? (
-                  <>
-                    <Check size={16} />
-                    Saved!
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} />
-                    Save
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-          
-          <Link
-            href="/"
-            className="text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
-            aria-label="Back to timer"
-          >
-            <X size={24} />
-          </Link>
+        {/* Breadcrumb */}
+        <div className="px-6 pb-4">
+          <BreadcrumbNav items={breadcrumbs} />
         </div>
       </header>
 
@@ -368,6 +381,162 @@ function SettingsPageContent() {
               <div className="font-medium">Digital</div>
               <div className="text-xs opacity-75 mt-1">Classic display</div>
             </button>
+          </div>
+        </section>
+
+        {/* Account Management */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
+              <Settings className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Account Management</h2>
+              <p className="text-gray-400 text-sm">Manage your account settings and preferences</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+              <div>
+                <p className="text-gray-300 font-medium">Email Address</p>
+                <p className="text-gray-500 text-sm">{user?.email || 'Not available'}</p>
+              </div>
+              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                Change Email
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+              <div>
+                <p className="text-gray-300 font-medium">Password</p>
+                <p className="text-gray-500 text-sm">Last updated recently</p>
+              </div>
+              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                Change Password
+              </button>
+            </div>
+            
+            <div className="border-t border-gray-700/50 pt-4">
+              <button className="text-red-400 hover:text-red-300 text-sm transition-colors">
+                Delete Account
+              </button>
+              <p className="text-gray-500 text-xs mt-1">This action cannot be undone</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Notification Settings */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-yellow-500/20 rounded-lg">
+              <Bell className="text-yellow-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Notifications</h2>
+              <p className="text-gray-400 text-sm">Configure desktop and browser notifications</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <EnhancedToggle
+              enabled={Notification.permission === 'granted'}
+              onChange={async () => {
+                if (Notification.permission === 'granted') {
+                  // Note: We can't programmatically revoke permissions
+                  alert('To disable notifications, please use your browser settings')
+                } else {
+                  const permission = await Notification.requestPermission()
+                  if (permission === 'granted') {
+                    new Notification('Pomodoro Timer', {
+                      body: 'Notifications enabled successfully!',
+                      icon: '/placeholder-logo.png'
+                    })
+                  }
+                }
+              }}
+              label="Desktop Notifications"
+              description="Get notified when sessions complete, even when the tab is in the background"
+            />
+            
+            <div className="ml-4 p-4 bg-gray-800/30 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-300 text-sm">Current Status</span>
+                <span className={`text-xs px-2 py-1 rounded ${
+                  Notification.permission === 'granted' 
+                    ? 'bg-green-500/20 text-green-400' 
+                    : Notification.permission === 'denied'
+                    ? 'bg-red-500/20 text-red-400'
+                    : 'bg-yellow-500/20 text-yellow-400'
+                }`}>
+                  {Notification.permission === 'granted' ? 'Enabled' : 
+                   Notification.permission === 'denied' ? 'Blocked' : 'Not Set'}
+                </span>
+              </div>
+              
+              {Notification.permission === 'denied' && (
+                <p className="text-gray-500 text-xs">
+                  Notifications are blocked. Please enable them in your browser settings to receive alerts.
+                </p>
+              )}
+              
+              <button 
+                onClick={() => {
+                  if (Notification.permission === 'granted') {
+                    new Notification('Test Notification', {
+                      body: 'This is how notifications will appear!',
+                      icon: '/placeholder-logo.png'
+                    })
+                  }
+                }}
+                disabled={Notification.permission !== 'granted'}
+                className="mt-2 text-blue-400 hover:text-blue-300 text-xs transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
+              >
+                Test Notification
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Data Management */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-purple-500/20 rounded-lg">
+              <Save className="text-purple-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Data Management</h2>
+              <p className="text-gray-400 text-sm">Export, import, and manage your data</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+              <div>
+                <p className="text-gray-300 font-medium">Export Data</p>
+                <p className="text-gray-500 text-sm">Download your tasks and session history</p>
+              </div>
+              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                Export JSON
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+              <div>
+                <p className="text-gray-300 font-medium">Import Data</p>
+                <p className="text-gray-500 text-sm">Upload a previously exported file</p>
+              </div>
+              <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                Import JSON
+              </button>
+            </div>
+            
+            <div className="border-t border-gray-700/50 pt-4">
+              <button className="text-red-400 hover:text-red-300 text-sm transition-colors">
+                Clear All Data
+              </button>
+              <p className="text-gray-500 text-xs mt-1">This will delete all tasks and session history</p>
+            </div>
           </div>
         </section>
 

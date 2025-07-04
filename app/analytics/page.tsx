@@ -2,15 +2,38 @@
 import { X, TrendingUp, Clock, Target, Zap, Calendar, BarChart3, Trash2, Check, AlertCircle } from "lucide-react"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
-import { generateCalendarGrid, getIntensityColor, calculateAnalytics } from "@/lib/utils"
+import { BreadcrumbNav, useBreadcrumbs } from "@/components/BreadcrumbNav"
+import { generateCalendarGrid, getIntensityColor, calculateAnalytics, formatTime } from "@/lib/utils"
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 
 /**
  * Enhanced Analytics page with daily view and minimalist design
  */
 function AnalyticsPageContent() {
-  const { sessions, dataLoading, getTaskStats, loadSessions, tasks, deleteTask, setTasks, toggleTaskCompletion, loadTasks, deleteSessionsByTaskId } = usePomodoro()
+  const { 
+    sessions, 
+    dataLoading, 
+    getTaskStats, 
+    loadSessions, 
+    tasks, 
+    deleteTask, 
+    setTasks, 
+    toggleTaskCompletion, 
+    loadTasks, 
+    deleteSessionsByTaskId,
+    // Current session info
+    currentTask,
+    selectedTaskId,
+    isRunning,
+    sessionType,
+    time,
+    sessionCount,
+    settings
+  } = usePomodoro()
+  const pathname = usePathname()
+  const breadcrumbs = useBreadcrumbs(pathname)
   const [taskStats, setTaskStats] = useState({
     totalTasks: 0,
     completedTasks: 0,
@@ -134,25 +157,125 @@ function AnalyticsPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
       {/* Consistent header with settings page */}
-      <header className="flex justify-between items-center p-6 border-b border-gray-800 bg-black/50 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gray-800/50 rounded-lg">
-            <BarChart3 className="text-blue-400" size={20} />
+      <header className="border-b border-gray-800 bg-black/50 backdrop-blur-sm">
+        <div className="flex justify-between items-center p-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gray-800/50 rounded-lg">
+              <BarChart3 className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">Analytics</h1>
+              <p className="text-gray-400 text-sm">Track your productivity patterns</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-semibold">Analytics</h1>
-            <p className="text-gray-400 text-sm">Track your productivity patterns</p>
-          </div>
+          
+          <Link
+            href="/"
+            className="text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Back to timer"
+          >
+            <X size={24} />
+          </Link>
         </div>
         
-        <Link
-          href="/"
-          className="text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
-          aria-label="Back to timer"
-        >
-          <X size={24} />
-        </Link>
+        {/* Breadcrumb */}
+        <div className="px-6 pb-4">
+          <BreadcrumbNav items={breadcrumbs} />
+        </div>
       </header>
+
+      {/* Current Session Display */}
+      {(currentTask || sessionType !== "work") && (
+        <div className="px-6 py-4 bg-gray-900/50 border-b border-gray-800">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 text-xs uppercase tracking-wide">Current Session</span>
+                    <span className="text-xs text-gray-500">
+                      {sessionCount}.{((sessionCount - 1) % settings.sessionsUntilLongBreak) + 1}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-white font-medium">
+                      {sessionType === "work" 
+                        ? (currentTask || "[no task selected]")
+                        : sessionType === "shortBreak" 
+                        ? "[short break]"
+                        : "[long break]"
+                      }
+                    </p>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-gray-300 font-mono text-sm">
+                      {formatTime(time)}
+                    </span>
+                    <span className="text-gray-500 text-sm">
+                      {isRunning ? "running" : "paused"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Quick actions */}
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/"
+                  className="px-3 py-1 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors text-sm"
+                >
+                  Go to Timer
+                </Link>
+                {sessionType === "work" && !currentTask && (
+                  <Link
+                    href="/tasks"
+                    className="px-3 py-1 text-orange-400 hover:bg-orange-500/20 rounded-lg transition-colors text-sm"
+                  >
+                    Select Task
+                  </Link>
+                )}
+              </div>
+            </div>
+            
+            {/* Task progress for work sessions */}
+            {sessionType === "work" && selectedTaskId && (
+              <div className="mt-3 ml-7">
+                {(() => {
+                  const currentTaskObj = tasks.find(task => task.id === selectedTaskId);
+                  if (currentTaskObj) {
+                    const progress = currentTaskObj.estimatedPomodoros > 0 
+                      ? Math.min(currentTaskObj.actualPomodoros / currentTaskObj.estimatedPomodoros, 1)
+                      : 0;
+                    
+                    return (
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-yellow-500">🍅</span>
+                        <span className="text-gray-400">
+                          {currentTaskObj.actualPomodoros}
+                          {currentTaskObj.estimatedPomodoros > 0 && `/${currentTaskObj.estimatedPomodoros}`}
+                        </span>
+                        {currentTaskObj.estimatedPomodoros > 0 && (
+                          <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-blue-400 transition-all duration-300"
+                              style={{ width: `${Math.min(progress * 100, 100)}%` }}
+                            />
+                          </div>
+                        )}
+                        {currentTaskObj.actualPomodoros >= currentTaskObj.estimatedPomodoros && 
+                         currentTaskObj.estimatedPomodoros > 0 && (
+                          <span className="text-green-400 text-xs">Ready to complete!</span>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-6">
         

@@ -327,6 +327,7 @@ export function usePomodoroLogic() {
     goAnalytics: () => router.push("/analytics"),
     goSettings: () => router.push("/settings"),
     goMenu: () => router.push("/menu"),
+    goHelp: () => router.push("/help"),
   });
   const { shortcuts } = useKeyboardShortcuts({});
 

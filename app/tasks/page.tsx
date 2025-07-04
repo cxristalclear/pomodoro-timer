@@ -4,8 +4,10 @@ import type React from "react"
 import { X, Plus, Trash2, Circle, CheckCircle2, Edit3, Check, MoreVertical, Clock, Target } from "lucide-react"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { BreadcrumbNav, useBreadcrumbs } from "@/components/BreadcrumbNav"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import type { Task } from "@/contexts/PomodoroContext"
 
 /**
@@ -28,6 +30,9 @@ function EnhancedTasksContent() {
     updateTask,
     loadTasks 
   } = usePomodoro()
+
+  const pathname = usePathname()
+  const breadcrumbs = useBreadcrumbs(pathname)
 
   // Drag and drop state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -226,18 +231,25 @@ function EnhancedTasksContent() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       {/* Minimal header */}
-      <header className="flex justify-between items-center p-6 border-b border-gray-900">
-        <div>
-          <h1 className="text-xl font-light">Tasks</h1>
-          <p className="text-gray-500 text-sm mt-1">{tasks.filter(t => !t.completed).length} active</p>
+      <header className="border-b border-gray-900">
+        <div className="flex justify-between items-center p-6">
+          <div>
+            <h1 className="text-xl font-light">Tasks</h1>
+            <p className="text-gray-500 text-sm mt-1">{tasks.filter(t => !t.completed).length} active</p>
+          </div>
+          <Link
+            href="/"
+            className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
+            aria-label="Back to timer"
+          >
+            <X size={20} />
+          </Link>
         </div>
-        <Link
-          href="/"
-          className="text-white p-2 hover:bg-gray-900 rounded transition-colors"
-          aria-label="Back to timer"
-        >
-          <X size={20} />
-        </Link>
+        
+        {/* Breadcrumb */}
+        <div className="px-6 pb-4">
+          <BreadcrumbNav items={breadcrumbs} />
+        </div>
       </header>
 
       {/* Current task indicator */}
