@@ -412,19 +412,12 @@ function TasksPageContent() {
         {/* Instructions */}
         {tasks.filter((t) => !t.completed).length > 1 && (
           <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
-            <p>Drag and drop tasks to reorder them</p>
-            <p>Click task to select and go to timer, double-click to edit</p>
-            <p>Click circle to complete, checkmark to uncomplete</p>
-            <p>🍅 shows pomodoro progress • ✨ indicates ready to complete</p>
-            <p>Green "Ready to complete!" badge shows when task has enough pomodoros</p>
+           
           </div>
         )}
         {tasks.filter((t) => !t.completed).length <= 1 && tasks.length > 0 && (
           <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
-            <p>Click task to select and go to timer, double-click to edit</p>
-            <p>Click circle to complete, checkmark to uncomplete</p>
-            <p>🍅 shows pomodoro progress • ✨ indicates ready to complete</p>
-            <p>Green "Ready to complete!" badge shows when task has enough pomodoros</p>
+            
           </div>
         )}
       </div>
