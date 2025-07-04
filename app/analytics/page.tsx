@@ -63,19 +63,19 @@ function AnalyticsPageContent() {
         {/* Statistics grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="text-center">
-            <p className="text-3xl font-light">{analytics.todayCount}</p>
+            <p className="text-3xl font-light">{analytics.todayCount ?? 0}</p>
             <p className="text-gray-500 text-sm">Today</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-light">{analytics.totalSessions}</p>
+            <p className="text-3xl font-light">{analytics.totalSessions ?? 0}</p>
             <p className="text-gray-500 text-sm">Total</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-light">{analytics.totalHours}h</p>
+            <p className="text-3xl font-light">{analytics.totalHours ?? 0}h</p>
             <p className="text-gray-500 text-sm">Hours</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-light">{analytics.avgPerDay}</p>
+            <p className="text-3xl font-light">{analytics.avgPerDay ?? 0}</p>
             <p className="text-gray-500 text-sm">Avg/Day</p>
           </div>
         </div>
@@ -83,19 +83,19 @@ function AnalyticsPageContent() {
         {/* Task completion statistics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="text-center">
-            <p className="text-3xl font-light">{taskStats.totalTasks}</p>
+            <p className="text-3xl font-light">{taskStats.totalTasks ?? 0}</p>
             <p className="text-gray-500 text-sm">Total Tasks</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-light">{taskStats.completedTasks}</p>
+            <p className="text-3xl font-light">{taskStats.completedTasks ?? 0}</p>
             <p className="text-gray-500 text-sm">Completed</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-light">{taskStats.totalPomodoros}</p>
+            <p className="text-3xl font-light">{taskStats.totalPomodoros ?? 0}</p>
             <p className="text-gray-500 text-sm">Pomodoros</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-light">{taskStats.avgPomodorosPerTask.toFixed(1)}</p>
+            <p className="text-3xl font-light">{(taskStats.avgPomodorosPerTask ?? 0).toFixed(1)}</p>
             <p className="text-gray-500 text-sm">Avg/Task</p>
           </div>
         </div>
@@ -108,18 +108,18 @@ function AnalyticsPageContent() {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-gray-400">Completion Rate</span>
                 <span className="text-sm text-white">
-                  {((taskStats.completedTasks / taskStats.totalTasks) * 100).toFixed(1)}%
+                  {((taskStats.completedTasks / (taskStats.totalTasks || 1)) * 100).toFixed(1)}%
                 </span>
               </div>
               <div className="w-full bg-gray-800 rounded-full h-2">
                 <div 
                   className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(taskStats.completedTasks / taskStats.totalTasks) * 100}%` }}
+                  style={{ width: `${(taskStats.completedTasks / (taskStats.totalTasks || 1)) * 100}%` }}
                 />
               </div>
               <div className="flex justify-between text-xs text-gray-600 mt-2">
-                <span>{taskStats.completedTasks} completed</span>
-                <span>{taskStats.totalTasks - taskStats.completedTasks} remaining</span>
+                <span>{taskStats.completedTasks ?? 0} completed</span>
+                <span>{(taskStats.totalTasks ?? 0) - (taskStats.completedTasks ?? 0)} remaining</span>
               </div>
             </div>
           </div>
@@ -132,8 +132,8 @@ function AnalyticsPageContent() {
             {calendarGrid.map((day, index) => (
               <div key={index} className="aspect-square">
                 <div
-                  className={`w-full h-full rounded-sm ${getIntensityColor(day.intensity)} hover:ring-1 hover:ring-gray-700 transition-all cursor-pointer`}
-                  title={`${day.date}: ${day.count} sessions`}
+                  className={`w-full h-full rounded-sm ${getIntensityColor(day.intensity ?? 0)} hover:ring-1 hover:ring-gray-700 transition-all cursor-pointer`}
+                  title={`${day.date}: ${day.count ?? 0} sessions`}
                 />
               </div>
             ))}
@@ -151,16 +151,16 @@ function AnalyticsPageContent() {
         </div>
 
         {/* Task breakdown */}
-        {Object.keys(analytics.taskBreakdown).length > 0 && (
+        {analytics.taskBreakdown && Object.keys(analytics.taskBreakdown).length > 0 && (
           <div>
             <h3 className="text-gray-500 text-sm mb-4">Task Breakdown</h3>
             <div className="space-y-2">
               {Object.entries(analytics.taskBreakdown)
-                .sort(([, a], [, b]) => b - a)
+                .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
                 .map(([task, count]) => (
                   <div key={task} className="flex justify-between items-center py-2 border-b border-gray-900">
                     <span className="text-gray-300">{task}</span>
-                    <span className="text-gray-500">{count}</span>
+                    <span className="text-gray-500">{count ?? 0}</span>
                   </div>
                 ))}
             </div>
@@ -177,10 +177,10 @@ function AnalyticsPageContent() {
                   <span className="text-yellow-500">🍅</span>
                   <span className="text-sm text-gray-400">Average Pomodoros per Task</span>
                 </div>
-                <p className="text-2xl font-light">{taskStats.avgPomodorosPerTask.toFixed(1)}</p>
+                <p className="text-2xl font-light">{(taskStats.avgPomodorosPerTask ?? 0).toFixed(1)}</p>
                 <p className="text-xs text-gray-600 mt-1">
-                  {taskStats.avgPomodorosPerTask < 2 ? "Great efficiency!" : 
-                   taskStats.avgPomodorosPerTask < 4 ? "Good pace" : 
+                  {(taskStats.avgPomodorosPerTask ?? 0) < 2 ? "Great efficiency!" : 
+                   (taskStats.avgPomodorosPerTask ?? 0) < 4 ? "Good pace" : 
                    "Consider breaking down complex tasks"}
                 </p>
               </div>
@@ -192,10 +192,10 @@ function AnalyticsPageContent() {
                   <span className="text-sm text-gray-400">Completion Rate</span>
                   </div>
                   <p className="text-2xl font-light">
-                    {((taskStats.completedTasks / taskStats.totalTasks) * 100).toFixed(0)}%
+                    {((taskStats.completedTasks / (taskStats.totalTasks || 1)) * 100).toFixed(0)}%
                   </p>
                   <p className="text-xs text-gray-600 mt-1">
-                    {taskStats.completedTasks} of {taskStats.totalTasks} tasks completed
+                    {taskStats.completedTasks ?? 0} of {taskStats.totalTasks ?? 0} tasks completed
                   </p>
                 </div>
               )}
