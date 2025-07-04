@@ -169,37 +169,6 @@ function AnalyticsPageContent() {
               </div>
             </section>
 
-            {/* Today's Timeline */}
-            <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Clock className="text-green-400" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-100">Today's Timeline</h2>
-                  <p className="text-gray-400 text-sm">Chronological view of your work sessions</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {sortedTodaySessions.length === 0 ? (
-                  <p className="text-gray-400 text-center py-8">No sessions recorded for today</p>
-                ) : (
-                  sortedTodaySessions.map((session, index) => (
-                    <div key={index} className="flex items-center gap-4 p-3 bg-gray-800/30 rounded-lg">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                      <div className="flex-1">
-                        <div className="text-gray-200 font-medium">{session.task}</div>
-                        <div className="text-gray-400 text-sm">
-                          {formatLocalTime(session.completedAt)} • {session.duration} min
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
             {/* Hourly Heatmap */}
             <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -228,6 +197,37 @@ function AnalyticsPageContent() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            {/* Today's Timeline */}
+            <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <Clock className="text-green-400" size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-100">Today's Timeline</h2>
+                  <p className="text-gray-400 text-sm">Chronological view of your work sessions</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {sortedTodaySessions.length === 0 ? (
+                  <p className="text-gray-400 text-center py-8">No sessions recorded for today</p>
+                ) : (
+                  sortedTodaySessions.map((session, index) => (
+                    <div key={index} className="flex items-center gap-4 p-3 bg-gray-800/30 rounded-lg">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="text-gray-200 font-medium">{session.task}</div>
+                        <div className="text-gray-400 text-sm">
+                          {formatLocalTime(session.completedAt)} • {session.duration} min
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
           </>
