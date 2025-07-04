@@ -61,14 +61,28 @@ function AnalyticsPageContent() {
   const todaySessions = (sessions || []).filter(s => s.date === today)
   const sortedTodaySessions = todaySessions.sort((a, b) => (a.completedAt || '').localeCompare(b.completedAt || ''))
 
-  // Generate hourly heatmap
+  // Generate hourly heatmap using local time
   const hourlyData = Array.from({length: 24}, (_, i) => {
     const hour = i.toString().padStart(2, '0')
-    const sessionsInHour = todaySessions.filter(s => 
-      s.completedAt && s.completedAt.includes(`${hour}:`)
-    ).length
+    const sessionsInHour = todaySessions.filter(s => {
+      if (!s.completedAt) return false
+      // Convert UTC timestamp to local time
+      const localTime = new Date(s.completedAt)
+      const localHour = localTime.getHours().toString().padStart(2, '0')
+      return localHour === hour
+    }).length
     return { hour, count: sessionsInHour }
   })
+
+  // Helper function to format timestamp to local time
+  const formatLocalTime = (utcTimestamp: string) => {
+    const date = new Date(utcTimestamp)
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
@@ -177,7 +191,7 @@ function AnalyticsPageContent() {
                       <div className="flex-1">
                         <div className="text-gray-200 font-medium">{session.task}</div>
                         <div className="text-gray-400 text-sm">
-                          {session.completedAt} • {session.duration} min
+                          {formatLocalTime(session.completedAt)} • {session.duration} min
                         </div>
                       </div>
                     </div>
@@ -205,11 +219,13 @@ function AnalyticsPageContent() {
                       className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-medium transition-all ${
                         count > 0 ? 'bg-blue-500 text-white' : 'bg-gray-800/50 text-gray-500'
                       }`}
-                      title={`${hour}:00 - ${count} sessions`}
+                      title={`${parseInt(hour) === 0 ? '12' : parseInt(hour) > 12 ? parseInt(hour) - 12 : parseInt(hour)}${parseInt(hour) < 12 ? 'AM' : 'PM'} - ${count} sessions`}
                     >
                       {count || ''}
                     </div>
-                    <div className="text-xs text-gray-400 mt-1">{hour}</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {parseInt(hour) === 0 ? '12A' : parseInt(hour) > 12 ? `${parseInt(hour) - 12}P` : parseInt(hour) === 12 ? '12P' : `${parseInt(hour)}A`}
+                    </div>
                   </div>
                 ))}
               </div>
