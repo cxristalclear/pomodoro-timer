@@ -123,7 +123,6 @@ export function useTimerShortcuts(actions: TimerShortcutActions) {
     { keys: '+ / -', description: 'Increase/Decrease Timer by 1 min' },
     { keys: 'Shift + +/-', description: 'Increase/Decrease Timer by 5 min' },
     { keys: 'F', description: 'Toggle Fullscreen/Focus Mode' },
-    { keys: 'N', description: 'Toggle Notifications' },
     { keys: 'M', description: 'Mute/Unmute Sounds' },
     { keys: 'Ctrl+H / Ctrl+/', description: 'Show Keyboard Shortcuts' },
     { keys: 'Escape', description: 'Close Shortcuts Popout' },

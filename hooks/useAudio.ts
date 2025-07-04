@@ -3,23 +3,14 @@ import { useRef, useEffect } from "react"
 
 export function useAudio({ soundEnabled, soundVolume }: { soundEnabled: boolean; soundVolume: number }) {
   const audioContextRef = useRef<AudioContext | null>(null)
-  const notificationPermissionRef = useRef(false)
 
-  // Initialize audio context and notification permission
+  // Initialize audio context
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
       } catch (error) {
         // Audio context not available
-      }
-      // Request notification permission
-      if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission().then((permission) => {
-          notificationPermissionRef.current = permission === "granted"
-        })
-      } else if (Notification.permission === "granted") {
-        notificationPermissionRef.current = true
       }
     }
   }, [])
@@ -41,58 +32,12 @@ export function useAudio({ soundEnabled, soundVolume }: { soundEnabled: boolean;
     }
   }
 
-  // Request notification permission
-  const requestNotificationPermission = () => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      Notification.requestPermission().then((permission) => {
-        notificationPermissionRef.current = permission === "granted"
-      })
-    }
-  }
-
-  // Check if notifications are enabled
-  const areNotificationsEnabled = () => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      const actualPermission = Notification.permission === "granted";
-      // Update our ref if it's out of sync
-      if (actualPermission !== notificationPermissionRef.current) {
-        notificationPermissionRef.current = actualPermission;
-      }
-      return actualPermission;
-    }
-    return false;
-  }
-
-  // Send browser notification
-  const sendNotification = (title: string, options?: NotificationOptions) => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    
-    if (!("Notification" in window)) {
-      console.warn('Browser does not support notifications');
-      return;
-    }
-    
-    if (Notification.permission === "granted") {
-      try {
-        new Notification(title, options);
-      } catch (error) {
-        console.error('Error creating notification:', error);
-      }
-    }
-  }
-
   // Test sound utility
   const testSound = () => playSound("work")
 
   return {
     audioContextRef,
-    notificationPermissionRef,
     playSound,
-    requestNotificationPermission,
-    areNotificationsEnabled,
-    sendNotification,
     testSound,
   }
 }

@@ -38,39 +38,35 @@ export function usePomodoroLogic() {
         ? settings.breakDuration 
         : settings.longBreakDuration;
       
-      const sessionData = {
-        task: sessionType === "work" ? currentTask || "Work Session" : sessionType === "shortBreak" ? "Short Break" : "Long Break",
-        duration: sessionDuration,
-        date: new Date().toLocaleDateString(),
-      };
+      const taskName = sessionType === "work" 
+        ? currentTask || "Work Session" 
+        : sessionType === "shortBreak" 
+        ? "Short Break" 
+        : "Long Break";
       
-      await addSession(sessionData);
+      console.log("🍅 Timer completed:", {
+        sessionType,
+        taskName,
+        selectedTaskId,
+        duration: sessionDuration
+      });
       
-      // If this was a work session, increment pomodoros for the current task
+      // Save session with proper task linking
       if (sessionType === "work" && selectedTaskId) {
+        console.log("💾 Saving work session with task_id:", selectedTaskId);
+        await saveCompletedSession(selectedTaskId, taskName, sessionDuration);
+        
+        // Increment pomodoros AFTER session is saved
+        console.log("🔢 Incrementing pomodoros for task:", selectedTaskId);
         await incrementTaskPomodoros(selectedTaskId);
+      } else {
+        // For break sessions, save without task_id
+        console.log("💾 Saving break session (no task_id)");
+        await saveCompletedSession(null, taskName, sessionDuration);
       }
       
       // Play completion sound
       playSound(sessionType);
-      
-      // Send browser notification
-      if (settings.notificationsEnabled && areNotificationsEnabled()) {
-        const notificationTitle = sessionType === "work" 
-          ? "Work Session Complete!" 
-          : sessionType === "shortBreak" 
-            ? "Short Break Complete!" 
-            : "Long Break Complete!";
-        
-        const notificationBody = sessionType === "work" 
-          ? `Great job! Time for a ${sessionCount % settings.sessionsUntilLongBreak === 0 ? "long" : "short"} break.`
-          : "Ready to get back to work?";
-        
-        sendNotification(notificationTitle, { 
-          body: notificationBody,
-          icon: '/placeholder-logo.png'
-        });
-      }
       
       // Auto-start next session if enabled
       if (sessionType === "work" && settings.autoStartBreaks) {
@@ -132,7 +128,7 @@ export function usePomodoroLogic() {
 
   // Audio/Notifications
   const audioHook = useAudio({ soundEnabled: settings.soundEnabled, soundVolume: settings.soundVolume });
-  const { testSound, requestNotificationPermission, areNotificationsEnabled, sendNotification, playSound } = audioHook;
+  const { testSound, playSound } = audioHook;
 
   // Data loading state
   const [dataLoading, setDataLoading] = useState(false);
@@ -153,7 +149,7 @@ export function usePomodoroLogic() {
   }, [sessionType, settings, setTime]);
 
   // Skip to next session (S)
-  const skipToNextSession = useCallback(() => {
+  const skipToNextSession = useCallback(async () => {
     // 1. Stop timer
     setIsRunning(false);
     let shouldSaveSession = false;
@@ -171,12 +167,25 @@ export function usePomodoroLogic() {
       const sessionDuration = getSessionFullDuration(sessionType) / 60;
       const taskName = sessionType === "work" ? currentTask || "Work Session" : sessionType === "shortBreak" ? "Short Break" : "Long Break";
       
-      // Use the enhanced session saving with task_id
-      saveCompletedSession(selectedTaskId, taskName, sessionDuration);
+      console.log("⏭️ Skip session - saving session:", {
+        sessionType,
+        taskName,
+        selectedTaskId,
+        duration: sessionDuration
+      });
       
-      // If this was a work session, increment pomodoros for the current task
+      // Save session with proper task linking
       if (sessionType === "work" && selectedTaskId) {
-        incrementTaskPomodoros(selectedTaskId);
+        console.log("💾 Saving skipped work session with task_id:", selectedTaskId);
+        await saveCompletedSession(selectedTaskId, taskName, sessionDuration);
+        
+        // Increment pomodoros AFTER session is saved
+        console.log("🔢 Incrementing pomodoros for skipped work session:", selectedTaskId);
+        await incrementTaskPomodoros(selectedTaskId);
+      } else {
+        // For break sessions, save without task_id
+        console.log("💾 Saving skipped break session (no task_id)");
+        await saveCompletedSession(null, taskName, sessionDuration);
       }
     }
     // 3. Increment session count if leaving a WORK session
@@ -344,12 +353,6 @@ export function usePomodoroLogic() {
       document.documentElement.requestFullscreen();
     }
   }, []);
-
-  // Toggle notifications (stub)
-  const toggleNotifications = useCallback(() => {
-    // Implement notification toggle logic here
-    requestNotificationPermission();
-  }, [requestNotificationPermission]);
 
   // Toggle mute (stub)
   const toggleMute = useCallback(() => {
@@ -599,9 +602,7 @@ export function usePomodoroLogic() {
 
     // Audio/Notifications
     testSound,
-    requestNotificationPermission,
-    areNotificationsEnabled,
-    sendNotification,
+    playSound,
 
     // Shortcuts info
     shortcuts,
@@ -620,9 +621,6 @@ export function usePomodoroLogic() {
 
     // Toggle fullscreen
     toggleFullscreen,
-
-    // Toggle notifications
-    toggleNotifications,
 
     // Toggle mute
     toggleMute,

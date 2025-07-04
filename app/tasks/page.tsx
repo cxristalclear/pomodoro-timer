@@ -3,6 +3,7 @@
 import type React from "react"
 import { X, Plus, Trash2, Circle, CheckCircle, Edit2, Check, X as XIcon } from "lucide-react"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { TaskProgressIndicator, ReadyToCompleteBadge } from "@/components/TaskProgressIndicator"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import type { Task } from "@/contexts/PomodoroContext"
@@ -288,16 +289,11 @@ function TasksPageContent() {
                   </button>
                 )}
                 
-                {/* Pomodoro progress indicator */}
-                {task.actualPomodoros > 0 && (
-                  <div className="flex items-center gap-1 text-sm text-gray-500">
-                    <span className="text-yellow-500">🍅</span>
-                    <span>{task.actualPomodoros}</span>
-                    {task.estimatedPomodoros > 1 && (
-                      <span className="text-gray-600">/ {task.estimatedPomodoros}</span>
-                    )}
-                  </div>
-                )}
+                {/* Ready to Complete Badge */}
+                <ReadyToCompleteBadge task={task} />
+                
+                {/* Enhanced Pomodoro Progress Indicator */}
+                <TaskProgressIndicator task={task} />
                 
                 <div className="flex items-center gap-1">
                   {editingTaskId !== task.id && (
@@ -388,16 +384,8 @@ function TasksPageContent() {
                       </div>
                     )}
                     
-                    {/* Pomodoro progress for completed tasks */}
-                    {task.actualPomodoros > 0 && (
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
-                        <span className="text-yellow-500">🍅</span>
-                        <span>{task.actualPomodoros}</span>
-                        {task.estimatedPomodoros > 1 && (
-                          <span className="text-gray-600">/ {task.estimatedPomodoros}</span>
-                        )}
-                      </div>
-                    )}
+                    {/* Enhanced Pomodoro Progress for completed tasks */}
+                    <TaskProgressIndicator task={task} className="opacity-75" />
                     
                     <div className="flex items-center gap-1">
                       {editingTaskId !== task.id && (
@@ -425,14 +413,16 @@ function TasksPageContent() {
             <p>Drag and drop tasks to reorder them</p>
             <p>Click task to select and go to timer, double-click to edit</p>
             <p>Click circle to complete, checkmark to uncomplete</p>
-            <p>🍅 shows pomodoro progress for each task</p>
+            <p>🍅 shows pomodoro progress • ✨ indicates ready to complete</p>
+            <p>Green "Ready to complete!" badge shows when task has enough pomodoros</p>
           </div>
         )}
         {tasks.filter((t) => !t.completed).length <= 1 && tasks.length > 0 && (
           <div className="mt-6 text-center text-gray-600 text-xs space-y-1">
             <p>Click task to select and go to timer, double-click to edit</p>
             <p>Click circle to complete, checkmark to uncomplete</p>
-            <p>🍅 shows pomodoro progress for each task</p>
+            <p>🍅 shows pomodoro progress • ✨ indicates ready to complete</p>
+            <p>Green "Ready to complete!" badge shows when task has enough pomodoros</p>
           </div>
         )}
       </div>

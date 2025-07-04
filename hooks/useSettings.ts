@@ -11,7 +11,6 @@ export function useSettings(userId: string | undefined) {
     sessionsUntilLongBreak: 4,
     soundEnabled: true,
     soundVolume: 0.5,
-    notificationsEnabled: true,
     autoStartBreaks: true,
     autoStartWork: false,
     timerDisplayMode: "digital",
@@ -41,7 +40,6 @@ export function useSettings(userId: string | undefined) {
           sessionsUntilLongBreak: data.sessions_until_long_break || 4,
           soundEnabled: data.sound_enabled ?? true,
           soundVolume: data.sound_volume ?? 0.5,
-          notificationsEnabled: data.notifications_enabled ?? true,
           autoStartBreaks: data.auto_start_breaks ?? true,
           autoStartWork: data.auto_start_work ?? false,
           timerDisplayMode: data.timer_display_mode || "digital", // Default to digital if not set
@@ -94,7 +92,6 @@ export function useSettings(userId: string | undefined) {
       sessionsUntilLongBreak: 4,
       soundEnabled: true,
       soundVolume: 0.5,
-      notificationsEnabled: true,
       autoStartBreaks: true,
       autoStartWork: false,
       timerDisplayMode: "digital",

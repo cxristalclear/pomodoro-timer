@@ -5,6 +5,7 @@ import { Menu } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { formatTime } from "@/lib/utils"
+import { CompactTaskProgress, ReadyToCompleteBadge } from "@/components/TaskProgressIndicator"
 import Link from "next/link"
 import { useTimerShortcuts } from "@/hooks/useTimerShortcuts"
 import { useEffect } from "react"
@@ -30,7 +31,6 @@ export const TimerDisplay: React.FC = () => {
     incrementTime,
     decrementTime,
     toggleFullscreen,
-    toggleNotifications,
     toggleMute,
     tasks,
     selectedTaskId,
@@ -59,21 +59,13 @@ export const TimerDisplay: React.FC = () => {
     incrementTime,
     decrementTime,
     toggleFullscreen,
-    toggleNotifications,
     toggleMute,
   })
 
-  // Debug logging
-  console.log("TimerDisplay - currentTask:", currentTask, "selectedTaskId:", selectedTaskId, "tasks:", tasks.length)
-  console.log("TimerDisplay - time:", time, "isRunning:", isRunning, "sessionType:", sessionType)
-  console.log("TimerDisplay - settings:", settings)
-
   // Get display time based on mode
   const getDisplayTime = () => {
-    console.log("getDisplayTime - timerDisplayMode:", settings.timerDisplayMode, "time:", time)
     // For now, always show countdown mode since we removed elapsed mode
     // In the future, we can add analog mode support here
-    console.log("getDisplayTime - countdown:", time)
     return time;
   };
 
@@ -151,15 +143,32 @@ export const TimerDisplay: React.FC = () => {
           >
             {getCurrentTaskDisplay()}
           </button>
-          {sessionType === "work" && (
-            <div className="text-xs text-gray-600">
-              
+          {sessionType === "work" && selectedTaskId && (
+            <div className="flex justify-center mt-2">
+              {(() => {
+                const currentTaskObj = tasks.find(task => task.id === selectedTaskId);
+                return currentTaskObj ? (
+                  <CompactTaskProgress task={currentTaskObj} className="text-gray-500" />
+                ) : null;
+              })()}
             </div>
           )}
         </div>
 
         {/* Timer display */}
-        <div className="text-8xl md:text-9xl font-thin mb-16 tracking-wider font-mono">{formatTime(getDisplayTime())}</div>
+        <div className="text-8xl md:text-9xl font-thin mb-8 tracking-wider font-mono">{formatTime(getDisplayTime())}</div>
+
+        {/* Ready to Complete Badge for Current Task */}
+        {sessionType === "work" && selectedTaskId && (
+          <div className="mb-8 flex justify-center">
+            {(() => {
+              const currentTaskObj = tasks.find(task => task.id === selectedTaskId);
+              return currentTaskObj ? (
+                <ReadyToCompleteBadge task={currentTaskObj} />
+              ) : null;
+            })()}
+          </div>
+        )}
 
         {/* Control buttons */}
         <div className="flex items-center gap-8">

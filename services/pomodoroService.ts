@@ -236,7 +236,18 @@ export const pomodoroService = {
 
     async incrementPomodoros(taskId: number) {
       const supabase = getSupabaseClient()
-      return supabase.rpc('increment_pomodoros', { task_id_param: taskId })
+      
+      console.log("🗄️ Calling increment_pomodoros RPC for task:", taskId);
+      
+      const result = await supabase.rpc('increment_pomodoros', { task_id_param: taskId });
+      
+      if (result.error) {
+        console.error("❌ Database error incrementing pomodoros:", result.error);
+      } else {
+        console.log("✅ Pomodoros incremented in database successfully");
+      }
+      
+      return result;
     },
 
     async getTaskStats(userId: string) {
@@ -297,14 +308,26 @@ export const pomodoroService = {
       const supabase = getSupabaseClient()
       const today = new Date().toISOString().split('T')[0]
       
-      return supabase.from("sessions").insert({
+      const sessionData = {
         user_id: userId,
         task_id: taskId,
         task: taskName,
         duration: duration,
         date: today,
         completed_at: new Date().toISOString()
-      })
+      };
+      
+      console.log("🗄️ Inserting session into database:", sessionData);
+      
+      const result = await supabase.from("sessions").insert(sessionData);
+      
+      if (result.error) {
+        console.error("❌ Database error saving session:", result.error);
+      } else {
+        console.log("✅ Session inserted into database successfully");
+      }
+      
+      return result;
     }
   },
 
@@ -324,7 +347,6 @@ export const pomodoroService = {
         sessions_until_long_break: settings.sessionsUntilLongBreak,
         sound_enabled: settings.soundEnabled,
         sound_volume: settings.soundVolume,
-        notifications_enabled: settings.notificationsEnabled,
         auto_start_breaks: settings.autoStartBreaks,
         auto_start_work: settings.autoStartWork,
         timer_display_mode: settings.timerDisplayMode,

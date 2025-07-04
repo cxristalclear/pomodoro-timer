@@ -90,37 +90,53 @@ export function useTasks(userId: string | undefined) {
 
   // Toggle task completion with proper validation
   const toggleTaskCompletion = useCallback(async (taskId: number) => {
-    if (userId) {
-      try {
-        const currentTask = tasks.find(task => task.id === taskId)
-        if (!currentTask) return
+    if (!userId) {
+      console.error("❌ Cannot toggle task completion: No userId");
+      return;
+    }
 
-        // Validate before completing
-        if (!currentTask.completed && (!currentTask.name || currentTask.name.trim() === '')) {
-          throw new Error('Task must have a name before completing')
-        }
-
-        const { error } = await pomodoroService.tasks.toggleTaskCompletion(userId, taskId)
-        if (error) {
-          console.error("Error updating task completion:", error)
-          return
-        }
-
-        // Update local state
-        setTasks((prev) =>
-          prev.map((task) =>
-            task.id === taskId
-              ? { 
-                  ...task, 
-                  completed: !task.completed, 
-                  completedAt: !task.completed ? new Date().toISOString() : undefined 
-                }
-              : task
-          )
-        )
-      } catch (error) {
-        console.error("Error updating task completion:", error)
+    try {
+      const currentTask = tasks.find(task => task.id === taskId)
+      if (!currentTask) {
+        console.error("❌ Cannot toggle task completion: Task not found", taskId);
+        return;
       }
+
+      console.log("🔄 Toggling task completion:", {
+        taskId,
+        taskName: currentTask.name,
+        currentlyCompleted: currentTask.completed,
+        willBeCompleted: !currentTask.completed
+      });
+
+      // Validate before completing
+      if (!currentTask.completed && (!currentTask.name || currentTask.name.trim() === '')) {
+        console.error("❌ Task must have a name before completing:", taskId);
+        throw new Error('Task must have a name before completing')
+      }
+
+      const { error } = await pomodoroService.tasks.toggleTaskCompletion(userId, taskId)
+      if (error) {
+        console.error("❌ Error updating task completion:", error)
+        return
+      }
+
+      console.log("✅ Task completion toggled successfully:", taskId);
+
+      // Update local state
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId
+            ? { 
+                ...task, 
+                completed: !task.completed, 
+                completedAt: !task.completed ? new Date().toISOString() : undefined 
+              }
+            : task
+        )
+      )
+    } catch (error) {
+      console.error("❌ Error updating task completion:", error)
     }
   }, [userId, tasks])
 
@@ -149,12 +165,21 @@ export function useTasks(userId: string | undefined) {
 
   // Increment pomodoros for a task
   const incrementTaskPomodoros = useCallback(async (taskId: number) => {
+    console.log("🔢 Incrementing pomodoros for task:", taskId);
+    
     try {
+      const currentTask = tasks.find(task => task.id === taskId);
+      const currentPomodoros = currentTask?.actualPomodoros || 0;
+      
+      console.log("📊 Current pomodoros before increment:", currentPomodoros);
+      
       const { error } = await pomodoroService.tasks.incrementPomodoros(taskId)
       if (error) {
-        console.error("Error incrementing pomodoros:", error)
+        console.error("❌ Error incrementing pomodoros:", error)
         return
       }
+
+      console.log("✅ Pomodoros incremented successfully, updating local state");
 
       // Update local state
       setTasks((prev) =>
@@ -164,10 +189,12 @@ export function useTasks(userId: string | undefined) {
             : task
         )
       )
+      
+      console.log("📊 New pomodoros count:", currentPomodoros + 1);
     } catch (error) {
-      console.error("Error incrementing pomodoros:", error)
+      console.error("❌ Error incrementing pomodoros:", error)
     }
-  }, [])
+  }, [tasks])
 
   // Get task statistics
   const getTaskStats = useCallback(async () => {

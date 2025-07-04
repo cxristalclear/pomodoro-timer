@@ -36,13 +36,26 @@ export function useSessions(userId: string | undefined) {
 
   // Save completed session with task tracking
   const saveCompletedSession = useCallback(async (taskId: number | null, taskName: string, duration: number) => {
-    if (!userId) return
+    if (!userId) {
+      console.error("❌ Cannot save session: No userId");
+      return;
+    }
+    
+    console.log("💾 Saving completed session:", {
+      taskId,
+      taskName,
+      duration,
+      userId
+    });
+    
     try {
       const { error } = await pomodoroService.sessions.saveCompletedSession(userId, taskId, taskName, duration)
       if (error) {
-        console.error("Error saving completed session:", error)
+        console.error("❌ Error saving completed session:", error)
         return
       }
+      
+      console.log("✅ Session saved successfully to database");
       
       // Add to local state
       const today = new Date().toISOString().split('T')[0]
@@ -54,9 +67,13 @@ export function useSessions(userId: string | undefined) {
         date: today
       }
       
+      console.log("📝 Adding session to local state:", newSession);
+      
       setSessions((prev) => [newSession, ...prev])
+      
+      console.log("✅ Session added to local state successfully");
     } catch (error) {
-      console.error("Error saving completed session:", error)
+      console.error("❌ Error saving completed session:", error)
     }
   }, [userId])
 

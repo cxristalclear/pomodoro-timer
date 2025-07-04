@@ -39,7 +39,6 @@ export interface Settings {
   sessionsUntilLongBreak: number
   soundEnabled: boolean
   soundVolume: number
-  notificationsEnabled: boolean
   autoStartBreaks: boolean
   autoStartWork: boolean
   timerDisplayMode?: "digital" | "analog" | "countdown"
