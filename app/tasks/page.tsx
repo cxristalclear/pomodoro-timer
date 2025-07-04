@@ -4,6 +4,7 @@ import type React from "react"
 import { X, Plus, Trash2, Circle, CheckCircle, Edit2, Check, X as XIcon } from "lucide-react"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { TaskProgressIndicator, ReadyToCompleteBadge } from "@/components/TaskProgressIndicator"
+import { QuickCompleteButton } from "@/components/QuickCompleteButton"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import type { Task } from "@/contexts/PomodoroContext"
@@ -291,6 +292,7 @@ function TasksPageContent() {
                 
                 {/* Ready to Complete Badge */}
                 <ReadyToCompleteBadge task={task} />
+                <QuickCompleteButton task={task} />
                 
                 {/* Enhanced Pomodoro Progress Indicator */}
                 <TaskProgressIndicator task={task} />

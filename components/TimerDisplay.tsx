@@ -8,7 +8,7 @@ import { formatTime } from "@/lib/utils"
 import { CompactTaskProgress, ReadyToCompleteBadge } from "@/components/TaskProgressIndicator"
 import Link from "next/link"
 import { useTimerShortcuts } from "@/hooks/useTimerShortcuts"
-import { useEffect } from "react"
+import { useEffect, useState, useRef } from "react"
 
 /**
  * Main timer display component showing the countdown, controls, and session info
@@ -38,6 +38,9 @@ export const TimerDisplay: React.FC = () => {
   } = usePomodoro()
 
   const router = useRouter()
+
+  const [showPostSessionActions, setShowPostSessionActions] = useState(false);
+  const postSessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reset all (timer + session count)
   const resetAll = () => {
@@ -109,6 +112,27 @@ export const TimerDisplay: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Listen for session completion and show modal if ready
+  useEffect(() => {
+    if (!isRunning && sessionType === "work" && selectedTaskId) {
+      const currentTaskObj = tasks.find(task => task.id === selectedTaskId);
+      if (
+        currentTaskObj &&
+        currentTaskObj.actualPomodoros >= currentTaskObj.estimatedPomodoros &&
+        currentTaskObj.estimatedPomodoros > 0 &&
+        !currentTaskObj.completed
+      ) {
+        // Delay modal to avoid race with state updates
+        if (postSessionTimeoutRef.current) clearTimeout(postSessionTimeoutRef.current);
+        postSessionTimeoutRef.current = setTimeout(() => setShowPostSessionActions(true), 500);
+      }
+    }
+    // Cleanup on unmount
+    return () => {
+      if (postSessionTimeoutRef.current) clearTimeout(postSessionTimeoutRef.current);
+    };
+  }, [isRunning, sessionType, selectedTaskId, tasks]);
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -215,6 +239,38 @@ export const TimerDisplay: React.FC = () => {
                 ))}
               </ul>
               <div className="mt-4 text-center text-xs text-gray-500">Press <span className="font-mono">Escape</span> to close</div>
+            </div>
+          </div>
+        )}
+
+        {/* Post-Session Quick Actions Modal */}
+        {showPostSessionActions && selectedTaskId && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center">
+            <div className="bg-gray-900 p-6 rounded-lg shadow-lg border border-gray-700 min-w-[300px] max-w-[90vw]">
+              <h3 className="text-white text-lg mb-4 text-center">Great work! 🍅</h3>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowPostSessionActions(false)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition-colors"
+                >
+                  Continue Task
+                </button>
+                <button
+                  onClick={() => {
+                    const currentTaskObj = tasks.find(task => task.id === selectedTaskId);
+                    if (currentTaskObj) {
+                      // Complete the task
+                      import("@/contexts/PomodoroContext").then(({ usePomodoro }) => {
+                        usePomodoro().toggleTaskCompletion(currentTaskObj.id);
+                      });
+                    }
+                    setShowPostSessionActions(false);
+                  }}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded transition-colors"
+                >
+                  ✓ Complete & Next
+                </button>
+              </div>
             </div>
           </div>
         )}
