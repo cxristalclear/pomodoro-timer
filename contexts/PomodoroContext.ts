@@ -83,6 +83,12 @@ export interface PomodoroContextType {
   // Session tracking
   sessions: Session[]
   loadSessions: () => Promise<void>
+  getSessionsByDate: (date: string) => Session[]
+  getTodaysFocusTime: () => number
+  getSessionStats: () => { total: number; workSessions: number; breakSessions: number }
+  getSessionsForTask: (taskId: number) => Session[]
+  getTaskPomodoros: (taskId: number) => number
+  deleteSessionsByTaskId: (taskId: number) => Promise<void>
 
   // Settings
   settings: Settings

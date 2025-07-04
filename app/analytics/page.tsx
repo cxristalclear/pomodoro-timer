@@ -1,5 +1,5 @@
 "use client"
-import { X, TrendingUp, Clock, Target, Zap, Calendar, BarChart3 } from "lucide-react"
+import { X, TrendingUp, Clock, Target, Zap, Calendar, BarChart3, Trash2, Check, AlertCircle } from "lucide-react"
 import { usePomodoro } from "@/contexts/PomodoroContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { generateCalendarGrid, getIntensityColor, calculateAnalytics } from "@/lib/utils"
@@ -10,7 +10,7 @@ import { useEffect, useState } from "react"
  * Enhanced Analytics page with daily view and minimalist design
  */
 function AnalyticsPageContent() {
-  const { sessions, dataLoading, getTaskStats, loadSessions } = usePomodoro()
+  const { sessions, dataLoading, getTaskStats, loadSessions, tasks, deleteTask, setTasks, toggleTaskCompletion, loadTasks, deleteSessionsByTaskId } = usePomodoro()
   const [taskStats, setTaskStats] = useState({
     totalTasks: 0,
     completedTasks: 0,
@@ -20,7 +20,7 @@ function AnalyticsPageContent() {
   const [sessionsLoading, setSessionsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily')
 
-  // Load sessions when component mounts
+  // Load sessions and tasks when component mounts
   useEffect(() => {
     if (loadSessions) {
       console.log("📊 Analytics page loading sessions...");
@@ -29,7 +29,11 @@ function AnalyticsPageContent() {
         setSessionsLoading(false);
       });
     }
-  }, [loadSessions])
+    if (loadTasks) {
+      console.log("📊 Analytics page loading tasks...");
+      loadTasks();
+    }
+  }, [loadSessions, loadTasks])
 
   // Load task statistics
   useEffect(() => {
@@ -83,6 +87,49 @@ function AnalyticsPageContent() {
       hour12: true 
     })
   }
+
+  // Function to completely delete a task and its sessions
+  const deleteTaskCompletely = async (taskId: number, taskName: string) => {
+    try {
+      console.log("🗑️ Completely deleting task:", taskName);
+      
+      // Delete associated sessions first
+      await deleteSessionsByTaskId(taskId);
+      
+      // Then delete the task
+      deleteTask(taskId);
+      
+      console.log("✅ Task and sessions deleted successfully");
+    } catch (error) {
+      console.error("❌ Error deleting task completely:", error);
+    }
+  };
+
+  // Function to clear all completed tasks and their sessions
+  const clearAllCompletedTasks = async () => {
+    const completedTasks = tasks.filter(t => t.completed);
+    if (completedTasks.length === 0) return;
+    
+    if (!window.confirm(`Delete ${completedTasks.length} completed tasks and all their session data?`)) {
+      return;
+    }
+    
+    try {
+      console.log("🗑️ Clearing all completed tasks and sessions");
+      
+      // Delete sessions for all completed tasks
+      await Promise.all(
+        completedTasks.map(task => deleteSessionsByTaskId(task.id))
+      );
+      
+      // Delete all completed tasks
+      completedTasks.forEach(task => deleteTask(task.id));
+      
+      console.log("✅ All completed tasks and sessions cleared");
+    } catch (error) {
+      console.error("❌ Error clearing completed tasks:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
@@ -331,6 +378,130 @@ function AnalyticsPageContent() {
               })
             )}
           </div>
+        </section>
+
+        {/* Task Management */}
+        <section className="bg-gray-800/20 border border-gray-700/30 rounded-xl p-6 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-500/20 rounded-lg">
+                <Trash2 className="text-red-400" size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-100">Task Management</h2>
+                <p className="text-gray-400 text-sm">Manage your tasks and clean up completed ones</p>
+              </div>
+            </div>
+            {tasks.filter(t => t.completed).length > 0 && (
+              <button 
+                onClick={clearAllCompletedTasks}
+                className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+              >
+                Clear Completed ({tasks.filter(t => t.completed).length})
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {tasks.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <Target size={48} className="mx-auto mb-3 opacity-50" />
+                <p>No tasks found</p>
+                <p className="text-sm mt-1">Create tasks from the timer page to see them here</p>
+              </div>
+            ) : (
+              tasks.map((task) => (
+                <div key={task.id} className="group flex items-center gap-4 p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
+                  {/* Status indicator */}
+                  <div className="flex items-center gap-2">
+                    {task.completed ? (
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    ) : task.actualPomodoros > 0 ? (
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    ) : (
+                      <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                    )}
+                  </div>
+
+                  {/* Task info */}
+                  <div className="flex-1">
+                    <div className={`font-medium ${task.completed ? 'text-gray-400 line-through' : 'text-gray-200'}`}>
+                      {task.name}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <span>{task.actualPomodoros}/{task.estimatedPomodoros} sessions</span>
+                      {task.completed && task.completedAt && (
+                        <span>Completed {new Date(task.completedAt).toLocaleDateString()}</span>
+                      )}
+                      {task.actualPomodoros >= task.estimatedPomodoros && task.estimatedPomodoros > 0 && !task.completed && (
+                        <span className="text-green-400 text-xs">Ready to complete</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="hidden md:block w-24">
+                    {task.estimatedPomodoros > 0 && (
+                      <div className="w-full bg-gray-700 rounded-full h-1.5">
+                        <div 
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            task.completed ? 'bg-green-500' : 'bg-blue-500'
+                          }`}
+                          style={{ 
+                            width: `${Math.min((task.actualPomodoros / task.estimatedPomodoros) * 100, 100)}%` 
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    {!task.completed && task.actualPomodoros >= task.estimatedPomodoros && task.estimatedPomodoros > 0 && (
+                      <button
+                        onClick={() => toggleTaskCompletion(task.id)}
+                        className="p-2 text-green-400 hover:bg-green-500/20 rounded-lg transition-colors"
+                        title="Mark as complete"
+                      >
+                        <Check size={16} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete task "${task.name}" and all its session data?`)) {
+                          deleteTaskCompletely(task.id, task.name);
+                        }
+                      }}
+                      className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      title="Delete task and session data"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Summary */}
+          {tasks.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-700/30">
+              <div className="flex items-center gap-4 text-sm text-gray-400">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                  <span>{tasks.filter(t => !t.completed && t.actualPomodoros === 0).length} not started</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span>{tasks.filter(t => !t.completed && t.actualPomodoros > 0).length} in progress</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>{tasks.filter(t => t.completed).length} completed</span>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Insights */}

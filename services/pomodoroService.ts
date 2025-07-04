@@ -328,6 +328,25 @@ export const pomodoroService = {
       }
       
       return result;
+    },
+
+    async deleteSessionsByTaskId(userId: string, taskId: number) {
+      const supabase = getSupabaseClient()
+      console.log("🗑️ Deleting sessions for task:", taskId);
+      
+      const result = await supabase
+        .from("sessions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("task_id", taskId);
+      
+      if (result.error) {
+        console.error("❌ Database error deleting sessions:", result.error);
+      } else {
+        console.log("✅ Sessions deleted from database successfully");
+      }
+      
+      return result;
     }
   },
 

@@ -124,7 +124,8 @@ export function usePomodoroLogic() {
     getSessionStats,
     getSessionsForTask,
     getTaskPomodoros,
-    loadSessions
+    loadSessions,
+    deleteSessionsByTaskId
   } = sessionsHook;
   const [completedTasks, setCompletedTasks] = useState(0);
 
@@ -589,6 +590,7 @@ export function usePomodoroLogic() {
     getSessionStats,
     getSessionsForTask,
     getTaskPomodoros,
+    deleteSessionsByTaskId,
 
     // Settings
     settings,

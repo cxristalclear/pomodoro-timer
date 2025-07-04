@@ -107,6 +107,23 @@ export function useSessions(userId: string | undefined) {
       .length
   }, [sessions])
 
+  // Delete sessions by task ID
+  const deleteSessionsByTaskId = useCallback(async (taskId: number) => {
+    if (!userId) return
+    
+    console.log("🗑️ Deleting sessions for task:", taskId);
+    
+    const { error } = await pomodoroService.sessions.deleteSessionsByTaskId(userId, taskId)
+    if (error) {
+      console.error("❌ Error deleting sessions:", error)
+      return
+    }
+    
+    // Remove from local state
+    setSessions(prev => prev.filter(s => s.taskId !== taskId))
+    console.log("✅ Sessions removed from local state");
+  }, [userId])
+
   return {
     sessions,
     setSessions,
@@ -118,5 +135,6 @@ export function useSessions(userId: string | undefined) {
     getSessionStats,
     getSessionsForTask,
     getTaskPomodoros,
+    deleteSessionsByTaskId,
   }
 }
