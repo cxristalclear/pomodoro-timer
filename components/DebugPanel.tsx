@@ -8,6 +8,11 @@ import { useState } from "react"
  * Only shows in development mode
  */
 export const DebugPanel: React.FC = () => {
+  // Only render in development mode
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
+
   const { 
     addTask, 
     newTaskInput, 

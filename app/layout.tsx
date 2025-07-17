@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { Suspense } from "react"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { PomodoroProvider } from "@/components/PomodoroProvider"
 
@@ -27,7 +28,13 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <AuthProvider><PomodoroProvider>{children}</PomodoroProvider></AuthProvider>
+        <AuthProvider>
+          <PomodoroProvider>
+            <Suspense fallback={<div className="min-h-screen bg-black" />}>
+              {children}
+            </Suspense>
+          </PomodoroProvider>
+        </AuthProvider>
       </body>
     </html>
   )
