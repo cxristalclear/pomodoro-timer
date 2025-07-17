@@ -15,7 +15,7 @@ Currently, we only track completed Pomodoro sessions. This means we're missing v
 
 ## Implementation Steps
 
-### 1. Database Schema Updates
+### 1. Database Schema Updates [DONE]
 
 ```sql
 -- Create new table for granular time tracking
@@ -48,7 +48,7 @@ Why these fields?
 - interruptions: Tracks focus quality
 - indexes: Optimize common analytics queries by user and date
 
-### 1.1 Existing Table Modifications
+### 1.1 Existing Table Modifications [DONE]
 
 We need to add some columns to the existing `tasks` table to better support time tracking:
 
@@ -79,12 +79,32 @@ These columns will help us:
 
 The new columns complement the new `task_time_records` table rather than duplicating data, as they store aggregate values for quick access while the detailed time records are stored in the new table.
 
-### 2. Type Definitions
+### 2. Type Definitions 
 
-Create a new file: `/types/timeTracking.ts`
+Add the following interfaces to `/workspaces/pomodoro-timer/lib/supabase/types.ts`, inside the existing `Database` interface under the `public.Tables` namespace:
 
 ```typescript
-export interface TaskTimeRecord {
+// In Database.public.Tables:
+task_time_records: {
+  Row: {
+    id: string
+    user_id: string
+    task_id: number
+    date: string
+    session_type: 'work' | 'shortBreak' | 'longBreak'
+    planned_pomodoros: number
+    completed_pomodoros: number
+    partial_time_spent: number
+    total_time_spent: number
+    interruptions: number
+    created_at: string
+    updated_at: string
+  }
+  Insert: Omit<Row, 'id' | 'created_at' | 'updated_at'>
+  Update: Partial<Insert>
+}
+
+// After the Database interface, add:
   id: string;
   userId: string;
   taskId: number;
@@ -177,12 +197,14 @@ export function usePomodoroLogic() {
 
 ### 4. Database Service Layer
 
-Add to `/services/pomodoroService.ts`:
+Add the following namespace to the existing `pomodoroService` object in `/workspaces/pomodoro-timer/services/pomodoroService.ts`:
+
 ```typescript
-export const pomodoroService = {
-  // ... existing code ...
-  
-  timeRecords: {
+import { getSupabaseClient } from "@/lib/supabase/client"
+import type { Database } from "@/lib/supabase/types"
+
+// Inside the existing pomodoroService object
+timeRecords: {
     async create(record: Omit<TaskTimeRecord, 'id' | 'createdAt' | 'updatedAt'>) {
       const { data, error } = await supabase
         .from('task_time_records')
@@ -212,7 +234,7 @@ export const pomodoroService = {
 
 #### 5.1 Analytics Hook
 
-Create `/hooks/useTimeAnalytics.ts`:
+Add to `/hooks/useTasks.ts`:
 ```typescript
 export function useTimeAnalytics(userId: string) {
   const [timeStats, setTimeStats] = useState<TimeTrackingStats | null>(null);
@@ -237,7 +259,7 @@ export function useTimeAnalytics(userId: string) {
 
 #### 5.2 Analytics Processing
 
-Add to `/utils/analytics.ts`:
+Add to `/lib/utils.ts`:
 ```typescript
 export function processTimeRecords(records: TaskTimeRecord[]): TimeTrackingStats {
   // Group by date for daily stats
