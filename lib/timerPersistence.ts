@@ -5,9 +5,10 @@
 // syncing across devices. Keyed by user id so two accounts sharing a browser
 // don't inherit each other's session.
 //
-// Remaining time is deliberately NOT stored. useTimer derives it from
+// A *running* session stores no remaining time: useTimer derives it from
 // `endTime`, an absolute wall-clock instant, so a restored session stays
-// accurate no matter how long the tab was closed.
+// accurate no matter how long the tab was closed. `remaining` is written only
+// for a paused session, which has no endTime to derive from.
 
 export const TIMER_STATE_VERSION = 1
 
@@ -60,11 +61,9 @@ export function writeTimerState(userId: string, state: Omit<PersistedTimerState,
   }
 }
 
-export function clearTimerState(userId: string): void {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.removeItem(keyFor(userId))
-  } catch {
-    // Nothing to do; see writeTimerState.
-  }
-}
+// No clearTimerState: nothing needs it. Keys are per-user, so one account can
+// never read another's snapshot, and wiping a user's own timer on sign-out would
+// defeat the point of persisting it — signing out and back in should not throw
+// away an in-progress Pomodoro. Cross-account bleed is an in-memory problem
+// (PomodoroProvider survives sign-out) and is handled in usePomodoro's hydration
+// effect, which clearing localStorage would not have fixed.
