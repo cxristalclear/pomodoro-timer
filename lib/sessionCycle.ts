@@ -38,3 +38,29 @@ export function getNextSession(
   }
   return { sessionType: "work", sessionCount: sessionCount + 1 }
 }
+
+/**
+ * Whether skipping the current session should record it, and for how long (#29).
+ *
+ * Takes `remainingSeconds` because that is what the timer actually holds, and
+ * converts to elapsed internally — the original bug was a comparison written
+ * against remaining time while reading as though it were elapsed
+ * (`time < fullDuration / 2` to mean "more than half done"), which inverted the
+ * rule in both directions: a session skipped after 7 seconds banked a full
+ * pomodoro, and one skipped at 96% recorded nothing.
+ *
+ * `minutes` is the time actually spent, rounded, floored at 1. The
+ * natural-completion path records the session's nominal length because it really
+ * did run to the end; a skipped session did not, so recording full length would
+ * overstate every focus-time total derived from `sessions.duration`.
+ */
+export function getSkipOutcome(
+  isRunning: boolean,
+  remainingSeconds: number,
+  fullDurationSeconds: number,
+): { save: boolean; minutes: number } {
+  const elapsed = Math.max(0, fullDurationSeconds - remainingSeconds)
+  const save =
+    isRunning && fullDurationSeconds > 0 && elapsed >= fullDurationSeconds / 2
+  return { save, minutes: Math.max(1, Math.round(elapsed / 60)) }
+}

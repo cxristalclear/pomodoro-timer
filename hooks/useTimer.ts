@@ -41,11 +41,24 @@ export function useTimer({
   }, [])
 
   // Pause, stashing the remainder so startTimer resumes from here.
+  //
+  // The remainder comes from endTimeRef, the same instant the countdown effect
+  // treats as authoritative. Deriving it as `sessionDuration - elapsed` instead
+  // is wrong after a resume: startTimeRef is then the *resume* instant while
+  // sessionDurationRef still holds the full session length, so each
+  // pause/resume cycle handed time back. A 25 minute session run for 10, paused,
+  // resumed, and paused again 5 minutes later stored 20 minutes left instead of
+  // 10 — and persistence wrote that inflated value to storage.
   const pauseTimer = useCallback(() => {
     setIsRunning(false)
-    if (startTimeRef.current !== null) {
+    if (endTimeRef.current !== null) {
+      const timeLeft = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000))
+      remainingTimeRef.current = timeLeft
+      setTime(timeLeft)
+    } else if (startTimeRef.current !== null) {
+      // No endTime (shouldn't happen via startTimer, but keep a sane fallback).
       const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
-      const timeLeft = sessionDurationRef.current - elapsed
+      const timeLeft = Math.max(0, sessionDurationRef.current - elapsed)
       remainingTimeRef.current = timeLeft
       setTime(timeLeft)
     }
@@ -78,11 +91,21 @@ export function useTimer({
     const newDuration = initialDuration
     if (sessionDurationRef.current !== newDuration || !time) {
       sessionDurationRef.current = newDuration
-      if (!isRunning) {
+
+      // Never discard an explicit paused remainder. This effect fires whenever
+      // settings arrive (they load asynchronously from the DB), and it used to
+      // overwrite a restored paused session with the full duration: restore put
+      // back "5:00 left of a 10 minute break", then the default 5 minute
+      // setting landed, then the real 10 minute setting landed, and the timer
+      // showed 10:00. Any non-default duration lost its remainder on refresh.
+      //
+      // Resetting the clock when the user deliberately changes a duration is
+      // still handled — useSettings.updateSettings calls resetTimer itself when
+      // a duration changes and the timer is stopped, which clears this ref.
+      if (!isRunning && remainingTimeRef.current === null) {
         setTime(newDuration)
         startTimeRef.current = null
         endTimeRef.current = null
-        remainingTimeRef.current = null
       }
     }
   }, [initialDuration, sessionType])

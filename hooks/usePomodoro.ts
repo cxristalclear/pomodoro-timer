@@ -10,7 +10,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import type { Task, Settings } from "@/contexts/PomodoroContext";
 import { pomodoroService } from "@/services/pomodoroService";
 import { readTimerState, writeTimerState, type SessionType } from "@/lib/timerPersistence";
-import { getNextSession } from "@/lib/sessionCycle";
+import { getNextSession, getSkipOutcome } from "@/lib/sessionCycle";
 
 /** Full length of a session type, in seconds. */
 function sessionSeconds(type: SessionType, settings: Settings): number {
@@ -169,19 +169,17 @@ export function usePomodoroLogic() {
   const skipToNextSession = useCallback(async () => {
     // 1. Stop timer
     setIsRunning(false);
-    let shouldSaveSession = false;
-    // 2. If timer was running and > 50% complete, save session to DB
-    if (isRunning) {
-      const fullDuration = getSessionFullDuration(sessionType);
-      if (fullDuration > 0 && time < fullDuration / 2) {
-        shouldSaveSession = false;
-      } else {
-        shouldSaveSession = true;
-      }
-    }
+
+    // 2. Record the session only if it was running and is at least half done.
+    // The rule lives in getSkipOutcome so it can be asserted directly — it was
+    // inverted here for a long time (#29) and read as though it were correct.
+    const { save: shouldSaveSession, minutes: sessionDuration } = getSkipOutcome(
+      isRunning,
+      time,
+      getSessionFullDuration(sessionType),
+    );
+
     if (shouldSaveSession) {
-      // Save session to DB with task tracking
-      const sessionDuration = getSessionFullDuration(sessionType) / 60;
       const taskName = sessionType === "work" ? currentTask || "Work Session" : sessionType === "shortBreak" ? "Short Break" : "Long Break";
       
       console.log("⏭️ Skip session - saving session:", {
@@ -344,23 +342,41 @@ export function usePomodoroLogic() {
   const [hydratedUserId, setHydratedUserId] = useState<string | null>(null);
   // Task id read from storage, applied once tasks have loaded.
   const pendingTaskIdRef = useRef<number | null>(null);
+  // Last payload written, so repeat writes of identical state are skipped.
+  const lastWrittenRef = useRef<string | null>(null);
 
   // Restore once per user, as soon as we know whose timer to read.
   useEffect(() => {
     if (!userId || hydratedUserId === userId) return;
 
     const saved = readTimerState(userId);
+
+    // Start from a clean slate before applying a snapshot. PomodoroProvider
+    // lives in the root layout and stays mounted across sign-out, so none of
+    // this state resets on its own: without the reset, signing in as a second
+    // account with no snapshot of its own would inherit the previous account's
+    // running timer, cycle position and selected task — and then the persist
+    // effect below would write all of it into the new account's key, letting the
+    // timer complete and save a session against the wrong user.
+    clearSelection();
+    pendingTaskIdRef.current = null;
+    lastWrittenRef.current = null;
+
     if (saved) {
       setSessionType(saved.sessionType);
       setSessionCount(saved.sessionCount);
       restoreTimer(saved);
       pendingTaskIdRef.current = saved.selectedTaskId;
+    } else {
+      setSessionType("work");
+      setSessionCount(1);
+      resetTimer(sessionSeconds("work", settings));
     }
 
     // Set last, and unconditionally: it both opens the gate on persistence and
     // marks this user as done, whether or not there was anything to restore.
     setHydratedUserId(userId);
-  }, [userId, hydratedUserId, restoreTimer]);
+  }, [userId, hydratedUserId, restoreTimer, resetTimer, clearSelection, settings]);
 
   // Re-select the task the restored session was being attributed to, so it
   // saves against the right task. Waits for tasks to load, and skips silently if
@@ -374,9 +390,17 @@ export function usePomodoroLogic() {
     }
   }, [tasks, selectTaskByIdNoReorder]);
 
-  // Persist on transitions only — start, pause, session change, task change.
-  // Deliberately not keyed on `time`: remaining time is derived from the
-  // absolute endTime, so writing on every 100ms tick would be pure waste.
+  // Persist whenever the stored shape actually changes.
+  //
+  // `time` is in the dep list so that ref-only mutations get noticed:
+  // resetTimer, incrementTime and decrementTime all write useTimer's refs
+  // without touching any discrete state, so keying on state alone missed them
+  // and a reset paused session restored its pre-reset remainder.
+  //
+  // But `time` also changes every 100ms while running, when nothing we store
+  // changes at all (endTime already carries the truth). Comparing the encoded
+  // payload against the last write keeps those ticks from hammering localStorage
+  // while still catching the transitions.
   //
   // The hydratedUserId guard is load-bearing. Without it this effect also fires
   // in the same commit as the restore above, where `sessionType`/`sessionCount`
@@ -385,16 +409,24 @@ export function usePomodoroLogic() {
   useEffect(() => {
     if (!userId || hydratedUserId !== userId) return;
     const snapshot = getTimerSnapshot();
-    writeTimerState(userId, {
+    const state = {
       sessionType,
       sessionCount,
       isRunning,
       duration: snapshot.duration,
       endTime: snapshot.endTime,
       remaining: snapshot.remaining,
-      selectedTaskId,
-    });
-  }, [userId, hydratedUserId, sessionType, sessionCount, isRunning, selectedTaskId, getTimerSnapshot]);
+      // Until tasks finish loading, selectedTaskId is still null while the
+      // restored id waits in pendingTaskIdRef. Writing the null would discard
+      // the attribution permanently if the tab closed during that window.
+      selectedTaskId: selectedTaskId ?? pendingTaskIdRef.current,
+    };
+
+    const encoded = JSON.stringify(state);
+    if (encoded === lastWrittenRef.current) return;
+    lastWrittenRef.current = encoded;
+    writeTimerState(userId, state);
+  }, [userId, hydratedUserId, sessionType, sessionCount, isRunning, selectedTaskId, time, getTimerSnapshot]);
 
   // Wrapper for settings page: only takes newSettings
   const updateSettingsForPage = async (newSettings: any) => {
