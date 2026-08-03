@@ -1,19 +1,29 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useTimer } from "./useTimer";
 import { useTasks } from "./useTasks";
 import { useSessions } from "./useSessions";
 import { useSettings } from "./useSettings";
 import { useAudio } from "./useAudio";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
-import { useEffect, useState, useCallback } from "react";
-import type { Task } from "@/contexts/PomodoroContext";
+import { useEffect, useState, useCallback, useRef } from "react";
+import type { Task, Settings } from "@/contexts/PomodoroContext";
 import { pomodoroService } from "@/services/pomodoroService";
+import { readTimerState, writeTimerState, type SessionType } from "@/lib/timerPersistence";
+import { getNextSession } from "@/lib/sessionCycle";
+
+/** Full length of a session type, in seconds. */
+function sessionSeconds(type: SessionType, settings: Settings): number {
+  if (type === "work") return settings.workDuration * 60;
+  if (type === "shortBreak") return settings.breakDuration * 60;
+  return settings.longBreakDuration * 60;
+}
 
 export function usePomodoroLogic() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
   const router = useRouter();
+  const pathname = usePathname();
 
   // Settings
   const settingsHook = useSettings(userId);
@@ -67,28 +77,38 @@ export function usePomodoroLogic() {
       
       // Play completion sound
       playSound(sessionType);
-      
-      // Auto-start next session if enabled
-      if (sessionType === "work" && settings.autoStartBreaks) {
-        // Move to break
-        setSessionCount(prev => prev + 1);
-        const nextSessionType = sessionCount % settings.sessionsUntilLongBreak === 0 ? "longBreak" : "shortBreak";
-        setSessionType(nextSessionType);
-        const newDuration = nextSessionType === "longBreak" 
-          ? settings.longBreakDuration * 60 
-          : settings.breakDuration * 60;
-        resetTimer(newDuration);
-        toggleTimer();
-      } else if ((sessionType === "shortBreak" || sessionType === "longBreak") && settings.autoStartWork) {
-        // Move to work
-        setSessionType("work");
-        resetTimer(settings.workDuration * 60);
-        toggleTimer();
-      }
+
+      // Always advance the cycle; auto-start only if the user opted in.
+      //
+      // Previously the advance was nested *inside* the auto-start check, so with
+      // autoStartBreaks off a finished work session just sat at 0:00 in the same
+      // session type — the cycle never moved on its own.
+      const next = getNextSession(sessionType, sessionCount, settings.sessionsUntilLongBreak);
+      setSessionType(next.sessionType);
+      setSessionCount(next.sessionCount);
+      resetTimer(sessionSeconds(next.sessionType, settings));
+
+      const shouldAutoStart = next.sessionType === "work"
+        ? settings.autoStartWork
+        : settings.autoStartBreaks;
+      if (shouldAutoStart) startTimer();
     },
     autoStart: false,
   });
-  const { time, isRunning, toggleTimer, resetTimer, setTime, setIsRunning, incrementTime, decrementTime } = timer;
+  const {
+    time,
+    isRunning,
+    toggleTimer,
+    startTimer,
+    pauseTimer,
+    resetTimer,
+    setTime,
+    setIsRunning,
+    incrementTime,
+    decrementTime,
+    getTimerSnapshot,
+    restoreTimer,
+  } = timer;
 
   // Tasks
   const tasksHook = useTasks(userId);
@@ -137,19 +157,13 @@ export function usePomodoroLogic() {
   const [dataLoading, setDataLoading] = useState(false);
 
   // Helper to get full duration for a session type
-  const getSessionFullDuration = (type: "work" | "shortBreak" | "longBreak") => {
-    if (type === "work") return settings.workDuration * 60;
-    if (type === "shortBreak") return settings.breakDuration * 60;
-    return settings.longBreakDuration * 60;
-  };
+  const getSessionFullDuration = (type: SessionType) => sessionSeconds(type, settings);
 
   // Reset current session (R)
   const resetCurrentSession = useCallback(() => {
-    setIsRunning(false);
-    const fullDuration = getSessionFullDuration(sessionType);
-    setTime(fullDuration);
+    resetTimer(sessionSeconds(sessionType, settings));
     // Do not change sessionType, sessionCount, or save session
-  }, [sessionType, settings, setTime]);
+  }, [sessionType, settings, resetTimer]);
 
   // Skip to next session (S)
   const skipToNextSession = useCallback(async () => {
@@ -191,59 +205,47 @@ export function usePomodoroLogic() {
         await saveCompletedSession(null, taskName, sessionDuration);
       }
     }
-    // 3. Increment session count if leaving a WORK session
-    let newSessionCount = sessionCount;
-    let nextSessionType = sessionType;
-    if (sessionType === "work") {
-      if (sessionCount < settings.sessionsUntilLongBreak) {
-        nextSessionType = "shortBreak";
-        newSessionCount = sessionCount + 1;
-      } else {
-        nextSessionType = "longBreak";
-        newSessionCount = 1;
-      }
-    } else if (sessionType === "shortBreak" || sessionType === "longBreak") {
-      nextSessionType = "work";
-      // sessionCount stays the same
-    }
-    setSessionType(nextSessionType);
-    setSessionCount(newSessionCount);
-    // 5. Set timer to new session's full duration
-    const newDuration = getSessionFullDuration(nextSessionType);
-    setTime(newDuration);
-    // 6. Check auto-start settings
-    if ((nextSessionType === "shortBreak" || nextSessionType === "longBreak") && settings.autoStartBreaks) {
-      setIsRunning(true);
-    } else if (nextSessionType === "work" && settings.autoStartWork) {
-      setIsRunning(true);
-    } else {
-      setIsRunning(false);
-    }
-  }, [isRunning, sessionType, sessionCount, settings, setTime, setIsRunning, setSessionType, setSessionCount, saveCompletedSession, selectedTaskId, incrementTaskPomodoros, currentTask, time]);
+    // 3. Advance the cycle using the same rule as natural expiry (#7).
+    const next = getNextSession(sessionType, sessionCount, settings.sessionsUntilLongBreak);
+    setSessionType(next.sessionType);
+    setSessionCount(next.sessionCount);
+
+    // 4. Reset the timer to the new session's full duration. resetTimer (not a
+    // bare setTime) so the wall-clock refs are cleared — otherwise startTimer
+    // below would resume against the *previous* session's endTime and fire
+    // onComplete immediately.
+    resetTimer(sessionSeconds(next.sessionType, settings));
+
+    // 5. Check auto-start settings
+    const shouldAutoStart = next.sessionType === "work"
+      ? settings.autoStartWork
+      : settings.autoStartBreaks;
+    if (shouldAutoStart) startTimer();
+  }, [isRunning, sessionType, sessionCount, settings, resetTimer, startTimer, setIsRunning, setSessionType, setSessionCount, saveCompletedSession, selectedTaskId, incrementTaskPomodoros, currentTask, time]);
 
   // Cycle to next session type (Down)
   const nextSessionTypeCycle = useCallback(() => {
-    setIsRunning(false);
-    let nextType: "work" | "shortBreak" | "longBreak";
+    let nextType: SessionType;
     if (sessionType === "work") nextType = "shortBreak";
     else if (sessionType === "shortBreak") nextType = "longBreak";
     else nextType = "work";
     setSessionType(nextType);
-    setTime(getSessionFullDuration(nextType));
+    // resetTimer rather than setTime, so the wall-clock refs are cleared and a
+    // subsequent start doesn't resume against the old session's endTime.
+    resetTimer(sessionSeconds(nextType, settings));
     // Do not change sessionCount or save session
-  }, [sessionType, setSessionType, setTime, settings]);
+  }, [sessionType, setSessionType, resetTimer, settings]);
 
   // Cycle to previous session type (Up)
   const previousSessionType = useCallback(() => {
-    setIsRunning(false);
-    let prevType: "work" | "shortBreak" | "longBreak";
+    let prevType: SessionType;
     if (sessionType === "work") prevType = "longBreak";
     else if (sessionType === "shortBreak") prevType = "work";
     else prevType = "shortBreak";
     setSessionType(prevType);
-    setTime(getSessionFullDuration(prevType));
+    resetTimer(sessionSeconds(prevType, settings));
     // Do not change sessionCount or save session
-  }, [sessionType, setSessionType, setTime, settings]);
+  }, [sessionType, setSessionType, resetTimer, settings]);
 
   // Next task function - completes current task and moves to next session
   const nextTask = useCallback(async () => {
@@ -282,26 +284,18 @@ export function usePomodoroLogic() {
 
     // If we're in a work session and timer is running, move to break
     if (sessionType === "work" && isRunning) {
-      // Increment session count
-      setSessionCount(prev => prev + 1);
-      
-      // Determine next session type
-      const nextSessionType = sessionCount % settings.sessionsUntilLongBreak === 0 ? "longBreak" : "shortBreak";
-      setSessionType(nextSessionType);
-      
-      // Reset timer with new duration
-      const newDuration = nextSessionType === "longBreak" 
-        ? settings.longBreakDuration * 60 
-        : settings.breakDuration * 60;
-      
-      resetTimer(newDuration);
-      
+      // Same shared cycle rule as the other two exit paths (#7).
+      const next = getNextSession(sessionType, sessionCount, settings.sessionsUntilLongBreak);
+      setSessionType(next.sessionType);
+      setSessionCount(next.sessionCount);
+      resetTimer(sessionSeconds(next.sessionType, settings));
+
       // Auto-start break if enabled
       if (settings.autoStartBreaks) {
-        toggleTimer();
+        startTimer();
       }
     }
-  }, [selectedTaskId, userId, tasks, toggleTaskCompletion, selectTaskByIdNoReorder, setTasks, updateTaskOrder, sessionType, isRunning, sessionCount, settings, resetTimer, toggleTimer]);
+  }, [selectedTaskId, userId, tasks, toggleTaskCompletion, selectTaskByIdNoReorder, setTasks, updateTaskOrder, sessionType, isRunning, sessionCount, settings, resetTimer, startTimer]);
 
   // Select task and navigate to timer
   const selectTaskAndNavigate = useCallback(async (task: Task) => {
@@ -317,19 +311,90 @@ export function usePomodoroLogic() {
     }, 100); // slight delay to ensure navigation/render
   }, [selectTask, router, isRunning, toggleTimer]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts.
+  //
+  // On "/", TimerDisplay mounts useTimerShortcuts, which owns the timer keys
+  // (Space, →, ↓, and more). Handing the same keys to this global hook as well
+  // meant both listeners fired for one keypress (#6): two session rows and two
+  // pomodoro increments per ↓, and a complete-then-uncomplete race per →.
+  //
+  // So the timer page keeps its own richer handler and this hook contributes
+  // navigation only; every other page still gets global timer control.
+  const timerPageOwnsTimerKeys = pathname === "/";
   useKeyboardShortcuts({
-    toggleTimer,
-    resetTimer,
-    nextTask,
-    skipToNextSession,
+    ...(timerPageOwnsTimerKeys
+      ? {}
+      : { toggleTimer, resetTimer, nextTask, skipToNextSession }),
     goTasks: () => router.push("/tasks"),
     goAnalytics: () => router.push("/analytics"),
     goSettings: () => router.push("/settings"),
     goMenu: () => router.push("/menu"),
     goHelp: () => router.push("/help"),
   });
-  const { shortcuts } = useKeyboardShortcuts({});
+
+  // ---- Timer persistence (#8) --------------------------------------------
+  // The timer used to live entirely in memory, so any refresh dropped the
+  // running session, its place in the cycle, and the elapsed work (no session
+  // row is written on unload, so that time was simply lost).
+
+  // Which user's timer we have already restored. Held as state, not a ref, on
+  // purpose: the persist effect below keys on it so that it first runs on the
+  // render *after* hydration. Keyed by id rather than a boolean so signing in as
+  // a different user on the same browser hydrates again instead of being skipped.
+  const [hydratedUserId, setHydratedUserId] = useState<string | null>(null);
+  // Task id read from storage, applied once tasks have loaded.
+  const pendingTaskIdRef = useRef<number | null>(null);
+
+  // Restore once per user, as soon as we know whose timer to read.
+  useEffect(() => {
+    if (!userId || hydratedUserId === userId) return;
+
+    const saved = readTimerState(userId);
+    if (saved) {
+      setSessionType(saved.sessionType);
+      setSessionCount(saved.sessionCount);
+      restoreTimer(saved);
+      pendingTaskIdRef.current = saved.selectedTaskId;
+    }
+
+    // Set last, and unconditionally: it both opens the gate on persistence and
+    // marks this user as done, whether or not there was anything to restore.
+    setHydratedUserId(userId);
+  }, [userId, hydratedUserId, restoreTimer]);
+
+  // Re-select the task the restored session was being attributed to, so it
+  // saves against the right task. Waits for tasks to load, and skips silently if
+  // the task was deleted in the meantime.
+  useEffect(() => {
+    const pending = pendingTaskIdRef.current;
+    if (pending === null || tasks.length === 0) return;
+    pendingTaskIdRef.current = null;
+    if (tasks.some((t) => t.id === pending)) {
+      selectTaskByIdNoReorder(pending);
+    }
+  }, [tasks, selectTaskByIdNoReorder]);
+
+  // Persist on transitions only — start, pause, session change, task change.
+  // Deliberately not keyed on `time`: remaining time is derived from the
+  // absolute endTime, so writing on every 100ms tick would be pure waste.
+  //
+  // The hydratedUserId guard is load-bearing. Without it this effect also fires
+  // in the same commit as the restore above, where `sessionType`/`sessionCount`
+  // still hold the pre-restore render's values — writing a half-stale snapshot
+  // back over the good one.
+  useEffect(() => {
+    if (!userId || hydratedUserId !== userId) return;
+    const snapshot = getTimerSnapshot();
+    writeTimerState(userId, {
+      sessionType,
+      sessionCount,
+      isRunning,
+      duration: snapshot.duration,
+      endTime: snapshot.endTime,
+      remaining: snapshot.remaining,
+      selectedTaskId,
+    });
+  }, [userId, hydratedUserId, sessionType, sessionCount, isRunning, selectedTaskId, getTimerSnapshot]);
 
   // Wrapper for settings page: only takes newSettings
   const updateSettingsForPage = async (newSettings: any) => {
@@ -610,9 +675,6 @@ export function usePomodoroLogic() {
     // Audio/Notifications
     testSound,
     playSound,
-
-    // Shortcuts info
-    shortcuts,
 
     // Loading
     dataLoading,
