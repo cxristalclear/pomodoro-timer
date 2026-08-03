@@ -29,6 +29,17 @@ function MinimalSettingsContent() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // `Notification` is undefined during SSR and on iOS Safari outside an
+  // installed PWA, so it must never be read during render.
+  const [notifSupported, setNotifSupported] = useState(false)
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default")
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifSupported(true)
+      setNotifPermission(Notification.permission)
+    }
+  }, [])
+
   // Update local settings when global settings change
   useEffect(() => {
     setLocalSettings(settings)
@@ -413,6 +424,7 @@ function MinimalSettingsContent() {
         </section>
 
         {/* Notifications */}
+        {notifSupported && (
         <section className="space-y-8">
           <h2 className="text-lg font-light text-gray-300">Notifications</h2>
           
@@ -424,22 +436,23 @@ function MinimalSettingsContent() {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`text-xs ${
-                  Notification.permission === 'granted' 
+                  notifPermission === 'granted' 
                     ? 'text-green-400' 
-                    : Notification.permission === 'denied'
+                    : notifPermission === 'denied'
                     ? 'text-red-400'
                     : 'text-yellow-400'
                 }`}>
-                  {Notification.permission === 'granted' ? 'Enabled' : 
-                   Notification.permission === 'denied' ? 'Blocked' : 'Not Set'}
+                  {notifPermission === 'granted' ? 'Enabled' : 
+                   notifPermission === 'denied' ? 'Blocked' : 'Not Set'}
                 </span>
                 <MinimalToggle 
-                  enabled={Notification.permission === 'granted'} 
+                  enabled={notifPermission === 'granted'} 
                   onChange={async () => {
-                    if (Notification.permission === 'granted') {
+                    if (notifPermission === 'granted') {
                       alert('To disable notifications, please use your browser settings')
                     } else {
                       const permission = await Notification.requestPermission()
+                      setNotifPermission(permission)
                       if (permission === 'granted') {
                         new Notification('Pomodoro Timer', {
                           body: 'Notifications enabled successfully!',
@@ -452,7 +465,7 @@ function MinimalSettingsContent() {
               </div>
             </div>
             
-            {Notification.permission === 'granted' && (
+            {notifPermission === 'granted' && (
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-white font-medium">Test Notification</div>
@@ -473,6 +486,7 @@ function MinimalSettingsContent() {
             )}
           </div>
         </section>
+        )}
 
         {/* Account */}
         <section className="space-y-8">

@@ -105,7 +105,6 @@ export interface PomodoroContextType {
   incrementTime: (seconds: number) => void
   decrementTime: (seconds: number) => void
   toggleFullscreen: () => void
-  toggleNotifications: () => void
   toggleMute: () => void
 
   // Basic task actions (existing)
@@ -151,13 +150,10 @@ export interface PomodoroContextType {
 
   // Settings actions
   setSettings: (settings: Settings | ((prev: Settings) => Settings)) => void
-  updateSettings: (settings: Settings | ((prev: Settings) => Settings)) => Promise<void>
+  updateSettings: (settings: Settings | ((prev: Settings) => Settings)) => Promise<Settings>
   
-  // Audio/Notifications
+  // Audio
   testSound: () => void
-  requestNotificationPermission: () => void
-  areNotificationsEnabled: () => boolean
-  sendNotification: (title: string, options?: NotificationOptions) => void
 }
 
 export const PomodoroContext = createContext<PomodoroContextType | undefined>(undefined)
