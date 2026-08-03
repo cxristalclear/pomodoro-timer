@@ -23,18 +23,27 @@ export function useTimerShortcuts(actions: TimerShortcutActions) {
       // Don't trigger shortcuts when typing in input fields
       if ((e.target as HTMLElement).tagName === "INPUT") return
 
+      // Unmodified shortcuts must not fire when Ctrl/Cmd/Alt is held, or they
+      // double up with the Ctrl-based navigation shortcuts in
+      // useKeyboardShortcuts (both hooks listen on window at once on "/").
+      // Ctrl+S in particular used to reach `skipToNextSession`, which persists
+      // a session row and increments pomodoros — a silent write on a keystroke
+      // the user pressed to open Settings.
+      // Shift is deliberately excluded: the +/- handlers below read it.
+      const isModified = e.ctrlKey || e.metaKey || e.altKey
+
       // Start/Pause timer
-      if ((e.code === "Space" || e.code === "Enter") && actions.toggleTimer) {
+      if (!isModified && (e.code === "Space" || e.code === "Enter") && actions.toggleTimer) {
         e.preventDefault()
         actions.toggleTimer()
       }
       // Reset current session
-      if (e.key === "r" && actions.resetTimer) {
+      if (!isModified && e.key === "r" && actions.resetTimer) {
         e.preventDefault()
         actions.resetTimer()
       }
       // Skip to next session
-      if (e.key === "s" && actions.skipToNextSession) {
+      if (!isModified && e.key === "s" && actions.skipToNextSession) {
         e.preventDefault()
         actions.skipToNextSession()
       }
@@ -44,27 +53,27 @@ export function useTimerShortcuts(actions: TimerShortcutActions) {
         actions.resetAll()
       }
       // Next task
-      if (e.key === "ArrowRight" && actions.nextTask) {
+      if (!isModified && e.key === "ArrowRight" && actions.nextTask) {
         e.preventDefault()
         actions.nextTask()
       }
       // Previous task
-      if (e.key === "ArrowLeft" && actions.previousTask) {
+      if (!isModified && e.key === "ArrowLeft" && actions.previousTask) {
         e.preventDefault()
         actions.previousTask()
       }
       // Next session type
-      if (e.key === "ArrowDown" && actions.skipToNextSession) {
+      if (!isModified && e.key === "ArrowDown" && actions.skipToNextSession) {
         e.preventDefault()
         actions.skipToNextSession()
       }
       // Previous session type
-      if (e.key === "ArrowUp" && actions.previousSessionType) {
+      if (!isModified && e.key === "ArrowUp" && actions.previousSessionType) {
         e.preventDefault()
         actions.previousSessionType()
       }
-      // Increase timer
-      if ((e.key === "+" || e.key === "=") && actions.incrementTime) {
+      // Increase timer (guarded so Ctrl+= / Cmd+= stays browser zoom)
+      if (!isModified && (e.key === "+" || e.key === "=") && actions.incrementTime) {
         e.preventDefault()
         if (e.shiftKey) {
           actions.incrementTime(300) // 5 min
@@ -72,8 +81,8 @@ export function useTimerShortcuts(actions: TimerShortcutActions) {
           actions.incrementTime(60) // 1 min
         }
       }
-      // Decrease timer
-      if (e.key === "-" && actions.decrementTime) {
+      // Decrease timer (guarded so Ctrl+- / Cmd+- stays browser zoom)
+      if (!isModified && e.key === "-" && actions.decrementTime) {
         e.preventDefault()
         if (e.shiftKey) {
           actions.decrementTime(300) // 5 min
@@ -82,17 +91,17 @@ export function useTimerShortcuts(actions: TimerShortcutActions) {
         }
       }
       // Toggle fullscreen/focus mode
-      if (e.key.toLowerCase() === "f" && actions.toggleFullscreen) {
+      if (!isModified && e.key.toLowerCase() === "f" && actions.toggleFullscreen) {
         e.preventDefault()
         actions.toggleFullscreen()
       }
       // Toggle notifications
-      if (e.key.toLowerCase() === "n" && actions.toggleNotifications) {
+      if (!isModified && e.key.toLowerCase() === "n" && actions.toggleNotifications) {
         e.preventDefault()
         actions.toggleNotifications()
       }
       // Mute/Unmute sounds
-      if (e.key.toLowerCase() === "m" && actions.toggleMute) {
+      if (!isModified && e.key.toLowerCase() === "m" && actions.toggleMute) {
         e.preventDefault()
         actions.toggleMute()
       }
