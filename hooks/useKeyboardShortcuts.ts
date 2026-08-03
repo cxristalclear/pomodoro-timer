@@ -1,6 +1,23 @@
 // Keyboard shortcuts hook for Pomodoro
 import { useEffect, useState } from "react"
 
+// Shortcut metadata for the help modal. Hoisted out of the hook so callers that
+// only want the list (e.g. a help page) can read it without mounting a second
+// window listener — see #6.
+export const GLOBAL_SHORTCUTS = [
+  { keys: 'Space', description: 'Start/Pause Timer' },
+  { keys: '→', description: 'Complete Task & Next Session' },
+  { keys: '↓', description: 'Skip to Next Session' },
+  { keys: 'Ctrl+R', description: 'Reset Timer' },
+  { keys: 'Ctrl+T', description: 'Go to Tasks' },
+  { keys: 'Ctrl+A', description: 'Go to Analytics' },
+  { keys: 'Ctrl+S', description: 'Go to Settings' },
+  { keys: 'Ctrl+M', description: 'Go to Menu' },
+  { keys: 'Ctrl+H', description: 'Go to Help' },
+  { keys: 'Ctrl+/', description: 'Show Keyboard Shortcuts' },
+  { keys: 'Escape', description: 'Close Modal/Dialog or Go Back' },
+]
+
 export function useKeyboardShortcuts(actions: Record<string, () => void>, disableShortcutsModal = false) {
   // State for showing the shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -90,20 +107,5 @@ export function useKeyboardShortcuts(actions: Record<string, () => void>, disabl
     return () => window.removeEventListener("keydown", handleKeyPress)
   }, [actions, showShortcuts, disableShortcutsModal])
 
-  // Return info about shortcuts for UI display
-  const shortcuts = [
-    { keys: 'Space', description: 'Start/Pause Timer' },
-    { keys: '→', description: 'Complete Task & Next Session' },
-    { keys: '↓', description: 'Skip to Next Session' },
-    { keys: 'Ctrl+R', description: 'Reset Timer' },
-    { keys: 'Ctrl+T', description: 'Go to Tasks' },
-    { keys: 'Ctrl+A', description: 'Go to Analytics' },
-    { keys: 'Ctrl+S', description: 'Go to Settings' },
-    { keys: 'Ctrl+M', description: 'Go to Menu' },
-    { keys: 'Ctrl+H', description: 'Go to Help' },
-    { keys: 'Ctrl+/', description: 'Show Keyboard Shortcuts' },
-    { keys: 'Escape', description: 'Close Modal/Dialog or Go Back' },
-  ]
-
-  return { shortcuts, showShortcuts, setShowShortcuts }
+  return { shortcuts: GLOBAL_SHORTCUTS, showShortcuts, setShowShortcuts }
 }
